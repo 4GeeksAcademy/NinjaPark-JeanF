@@ -96,10 +96,17 @@ function App() {
   }
 
   const fetchSedes = async () => {
-    const response = await axios.get(`${API_URL}/sedes`)
-    const list = response.data.sedes || []
-    setSedes(list)
-    setKiosk((prev) => ({ ...prev, sede: prev.sede || list[0] || '' }))
+    try {
+      const response = await axios.get(`${API_URL}/sedes`, { timeout: 5000 })
+      const list = response.data.sedes || []
+      setSedes(list)
+      setKiosk((prev) => ({ ...prev, sede: prev.sede || list[0] || '' }))
+    } catch (err) {
+      const msg = err.code === 'ECONNREFUSED' || err.code === 'ERR_NETWORK'
+        ? 'Servidor backend no disponible. Asegúrate que el backend esté corriendo en puerto 3001.'
+        : 'No se pudieron cargar las sedes. Verifica la conexión.'
+      pushMessage('error', msg)
+    }
   }
 
   const stopCamera = useCallback(() => {
@@ -498,7 +505,9 @@ function App() {
       <nav className='fixed top-0 left-0 right-0 z-50 px-4 sm:px-8 py-3'>
         <div className='max-w-7xl mx-auto flex items-center justify-between'>
           <div className='flex items-center gap-3'>
-            <div className='w-9 h-9 rounded-lg bg-gradient-to-br from-cyan-400 via-indigo-500 to-purple-600 flex items-center justify-center text-white font-black shadow-lg shadow-cyan-500/25 text-sm'>S</div>
+            <div className='w-9 h-9 rounded-lg bg-gradient-to-br from-cyan-400 via-indigo-500 to-purple-600 flex items-center justify-center text-white font-black shadow-lg shadow-cyan-500/25 text-sm overflow-hidden animate-glow-pulse'>
+              <span className='animate-float-slow inline-block'>S</span>
+            </div>
             <div>
               <span className='text-white font-bold text-xl tracking-tight leading-none'>SYNAP</span>
               <span className='block text-slate-500 text-[9px] uppercase tracking-[0.25em] font-medium leading-tight'>by VERSA.JS</span>
@@ -512,12 +521,20 @@ function App() {
       </nav>
 
       {/* ─── HERO ─── */}
-      <section className='hero-bg min-h-screen flex items-center pt-20 pb-16 px-4 sm:px-8'>
-        <div className='max-w-7xl mx-auto w-full'>
+      <section className='hero-bg min-h-screen flex items-center pt-20 pb-16 px-4 sm:px-8 relative'>
+        {/* Floating decorative particles */}
+        <div className='absolute inset-0 pointer-events-none overflow-hidden'>
+          <div className='absolute w-2 h-2 rounded-full bg-cyan-400/30 top-[15%] left-[10%] animate-float-drift' style={{animationDelay: '0s', animationDuration: '7s'}} />
+          <div className='absolute w-1.5 h-1.5 rounded-full bg-indigo-400/30 top-[30%] left-[80%] animate-float-drift' style={{animationDelay: '1.2s', animationDuration: '9s'}} />
+          <div className='absolute w-2.5 h-2.5 rounded-full bg-purple-400/20 top-[60%] left-[20%] animate-float-drift' style={{animationDelay: '0.5s', animationDuration: '8s'}} />
+          <div className='absolute w-1 h-1 rounded-full bg-cyan-300/40 top-[70%] left-[70%] animate-float-drift' style={{animationDelay: '2s', animationDuration: '6s'}} />
+          <div className='absolute w-1.5 h-1.5 rounded-full bg-amber-300/20 top-[45%] left-[45%] animate-float-drift' style={{animationDelay: '1s', animationDuration: '10s'}} />
+        </div>
+        <div className='max-w-7xl mx-auto w-full relative z-10'>
           <div className='grid lg:grid-cols-2 gap-12 items-center'>
             {/* Left */}
             <div className='animate-slide-up'>
-              <div className='inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full px-4 py-1.5 mb-5'>
+              <div className='inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full px-4 py-1.5 mb-5 animate-fade-in'>
                 <span className='w-2 h-2 rounded-full bg-emerald-400 animate-pulse' />
                 <span className='text-slate-300 text-xs sm:text-sm'>SYNAP activo — 2 sedes</span>
                 <span className='w-px h-4 bg-white/20 mx-1' />
@@ -549,7 +566,7 @@ function App() {
                 { icon: 'S', label: 'Multi-sede', desc: 'Candelaria · Chacao', color: 'from-emerald-400 to-teal-500' },
                 { icon: 'L', label: 'Panel vivo', desc: 'Datos actualizados al instante', color: 'from-amber-400 to-orange-500' },
               ].map((card, i) => (
-                <div key={i} className={`glass-card rounded-2xl p-5 text-center reveal-${i + 1}`} style={scrollSections[`hero-card-${i}`] ? {} : { opacity: 0, transform: 'translateY(20px)' }} ref={scrollRef(`hero-card-${i}`)}>
+                <div key={i} className={`glass-card rounded-2xl p-5 text-center reveal-${i + 1} stagger-${i + 1}`} style={scrollSections[`hero-card-${i}`] ? {} : { opacity: 0, transform: 'translateY(20px)' }} ref={scrollRef(`hero-card-${i}`)}>
                   <div className={`w-10 h-10 mx-auto mb-3 rounded-xl bg-gradient-to-br ${card.color} flex items-center justify-center text-white font-bold text-sm shadow-lg`}>{card.icon}</div>
                   <div className='text-white font-bold text-sm'>{card.label}</div>
                   <div className='text-slate-400 text-xs mt-1'>{card.desc}</div>
@@ -563,8 +580,9 @@ function App() {
       {/* ─── FEATURES: Experiencia Inmersiva ─── */}
       <section ref={scrollRef('features')} className='ninja-bg py-24 px-4 sm:px-8 relative overflow-hidden'>
         {/* Background decorative elements */}
-        <div className='absolute top-0 left-1/4 w-96 h-96 bg-cyan-500/5 rounded-full blur-3xl' />
-        <div className='absolute bottom-0 right-1/4 w-96 h-96 bg-indigo-500/5 rounded-full blur-3xl' />
+        <div className='absolute top-0 left-1/4 w-96 h-96 bg-cyan-500/5 rounded-full blur-3xl animate-float-slow' style={{animationDuration: '12s'}} />
+        <div className='absolute bottom-0 right-1/4 w-96 h-96 bg-indigo-500/5 rounded-full blur-3xl animate-float-slow' style={{animationDuration: '10s', animationDelay: '1s'}} />
+        <div className='absolute top-1/3 right-1/3 w-64 h-64 bg-purple-500/5 rounded-full blur-3xl animate-float-slow' style={{animationDuration: '14s', animationDelay: '0.5s'}} />
 
         <div className='max-w-7xl mx-auto relative z-10'>
           <div className='text-center mb-16' style={scrollSections['features'] ? {} : { opacity: 0, transform: 'translateY(30px)' }}>
@@ -573,7 +591,7 @@ function App() {
               Tu experiencia{' '}
               <span className='bg-gradient-to-r from-cyan-300 via-indigo-300 to-purple-300 bg-clip-text text-transparent'>SYNAP</span>
             </h2>
-            <div className='w-24 h-1 mx-auto bg-gradient-to-r from-cyan-400 to-indigo-500 rounded-full' />
+            <div className='w-24 h-1 mx-auto bg-gradient-to-r from-cyan-400 to-indigo-500 rounded-full animate-pulse-glow' />
           </div>
 
           {/* Timeline / Steps */}
@@ -624,7 +642,7 @@ function App() {
                   {/* Content side */}
                   <div className='flex-1 w-full lg:w-1/2'>
                     <div className={`${step.align === 'right' ? 'lg:text-left' : 'lg:text-left'} text-left`}>
-                      <span className={`inline-block text-6xl sm:text-7xl font-black bg-gradient-to-r ${step.color} bg-clip-text text-transparent opacity-20 leading-none mb-2 select-none`}>
+                      <span className={`inline-block text-6xl sm:text-7xl font-black bg-gradient-to-r ${step.color} bg-clip-text text-transparent opacity-20 leading-none mb-2 select-none animate-float-slow`} style={{animationDuration: '6s', animationDelay: `${i * 0.3}s`}}>
                         {step.num}
                       </span>
                       <h3 className='text-2xl sm:text-3xl font-bold text-white mb-2'>{step.title}</h3>
@@ -636,9 +654,9 @@ function App() {
                   {/* Visual side */}
                   <div className='flex-1 w-full lg:w-1/2 flex justify-center'>
                     <div className='relative group'>
-                      <div className={`w-48 h-48 sm:w-56 sm:h-56 rounded-3xl bg-gradient-to-br ${step.color} p-[2px] shadow-xl transition-transform duration-500 group-hover:scale-105`}>
+                      <div className={`w-48 h-48 sm:w-56 sm:h-56 rounded-3xl bg-gradient-to-br ${step.color} p-[2px] shadow-xl transition-all duration-500 group-hover:scale-105 group-hover:shadow-2xl`}>
                         <div className='w-full h-full rounded-3xl ninja-bg flex items-center justify-center'>
-                          <div className={`w-32 h-32 rounded-2xl bg-gradient-to-br ${step.color} flex items-center justify-center shadow-2xl animate-float`}>
+                          <div className={`w-32 h-32 rounded-2xl bg-gradient-to-br ${step.color} flex items-center justify-center shadow-2xl animate-float`} style={{animationDelay: `${i * 0.2}s`, animationDuration: `${5 + i * 0.5}s`}}>
                             <span className='text-white text-3xl font-black opacity-90'>{step.icon}</span>
                           </div>
                         </div>
@@ -655,15 +673,21 @@ function App() {
       </section>
 
       {/* ─── CTA ─── */}
-      <section className='hero-bg py-16 px-4 sm:px-8'>
-        <div className='max-w-4xl mx-auto text-center'>
+      <section className='cta-bg py-20 px-4 sm:px-8 relative overflow-hidden'>
+        {/* Floating particles */}
+        <div className='absolute inset-0 pointer-events-none'>
+          <div className='absolute w-3 h-3 rounded-full bg-amber-400/20 top-[20%] left-[15%] animate-float-slow' style={{animationDuration: '8s'}} />
+          <div className='absolute w-2 h-2 rounded-full bg-yellow-400/20 top-[40%] right-[20%] animate-float-drift' style={{animationDuration: '11s', animationDelay: '1s'}} />
+          <div className='absolute w-1.5 h-1.5 rounded-full bg-orange-400/15 bottom-[30%] left-[30%] animate-float' style={{animationDuration: '6s'}} />
+        </div>
+        <div className='max-w-4xl mx-auto text-center relative z-10'>
           <h2 className='text-3xl sm:text-4xl font-black text-white mb-4'>
             ¿Listo para <span className='bg-gradient-to-r from-cyan-300 to-indigo-300 bg-clip-text text-transparent'>SYNAP</span>?
           </h2>
           <p className='text-slate-300 text-lg mb-8 max-w-2xl mx-auto'>
             Regístrate en segundos y disfruta de tus saltos, juegos y diversión sin filas. Tecnología <span className='text-cyan-300 font-semibold'>VERSA.JS</span>.
           </p>
-          <button onClick={() => { setView('kiosk'); setKiosk(p => ({...p, sede: p.sede || sedes[0] || ''})) }} className='k-btn-gold text-lg px-10 py-4'>
+          <button onClick={() => { setView('kiosk'); setKiosk(p => ({...p, sede: p.sede || sedes[0] || ''})) }} className='k-btn-gold text-lg px-10 py-4 scale-in'>
             Quiero registrarme ahora
           </button>
         </div>
