@@ -20,14 +20,10 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 const JWT_SECRET = process.env.JWT_SECRET || 'versa_dev_secret_change_me';
-const KIOSK_DEFAULT_SEDE = process.env.KIOSK_DEFAULT_SEDE || 'Quito Centro';
+const KIOSK_DEFAULT_SEDE = process.env.KIOSK_DEFAULT_SEDE || 'Ninja Park Candelaria';
 const SEDES = [
-  'Quito Centro',
-  'Quito Norte',
-  'Guayaquil',
-  'Cuenca',
-  'Manta',
-  'Ambato',
+  'Ninja Park Candelaria',
+  'Ninja Park Chacao',
 ];
 
 // ─── Configuración de Multer para subida de fotos ───
@@ -1044,25 +1040,39 @@ app.get('/api/pos/autocomplete/:cedula', authRequired, requireRole('cajero', 'ad
 const ensureDefaultUsers = async () => {
   const defaults = [
     {
-      username: 'master',
-      password: 'MasterNinja2026!',
+      username: 'jeanf9839@gmail.com',
+      password: 'The.poison123',
       role: 'master',
       sede: null,
-      nombre: 'Administrador Maestro',
+      nombre: 'Jean Franco',
     },
     {
-      username: 'admin.quito',
-      password: 'AdminQuito2026!',
+      username: 'admin.candelaria',
+      password: 'AdminCandelaria2026!',
       role: 'admin',
-      sede: 'Quito Centro',
-      nombre: 'Admin Quito Centro',
+      sede: 'Ninja Park Candelaria',
+      nombre: 'Admin Candelaria',
     },
     {
-      username: 'cajero.guayaquil',
-      password: 'CajeroGye2026!',
+      username: 'cajero.candelaria',
+      password: 'CajeroCandelaria2026!',
       role: 'cajero',
-      sede: 'Guayaquil',
-      nombre: 'Cajero Guayaquil',
+      sede: 'Ninja Park Candelaria',
+      nombre: 'Cajero Candelaria',
+    },
+    {
+      username: 'admin.chacao',
+      password: 'AdminChacao2026!',
+      role: 'admin',
+      sede: 'Ninja Park Chacao',
+      nombre: 'Admin Chacao',
+    },
+    {
+      username: 'cajero.chacao',
+      password: 'CajeroChacao2026!',
+      role: 'cajero',
+      sede: 'Ninja Park Chacao',
+      nombre: 'Cajero Chacao',
     },
   ];
 
