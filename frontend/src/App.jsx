@@ -29,7 +29,7 @@ const FOOTER_SECTIONS = {
   },
   contact: {
     title: 'Contáctanos',
-    content: `📍 Caracas, Venezuela\n📧 soporte@ninjapark.com\n📱 +58 412-1234567\n🕐 Lun-Sáb 9:00 - 20:00\nNinja Park Candelaria · Ninja Park Chacao`,
+    content: 'Dirección: Caracas, Venezuela\n\nEmail: soporte@ninjapark.com\nTeléfono: +58 412-1234567\nHorario: Lun-Sáb 9:00 - 20:00\n\nNinja Park Candelaria · Ninja Park Chacao',
   },
 }
 
@@ -38,6 +38,21 @@ function App() {
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState({ type: '', text: '' })
   const [sedes, setSedes] = useState([])
+  const [scrollSections, setScrollSections] = useState({})
+
+  const scrollRef = useCallback((sectionName) => (node) => {
+    if (!node) return
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setScrollSections((prev) => ({ ...prev, [sectionName]: true }))
+          observer.unobserve(node)
+        }
+      },
+      { threshold: 0.15 }
+    )
+    observer.observe(node)
+  }, [])
 
   const [kiosk, setKiosk] = useState(initialKiosk)
   const [kioskStep, setKioskStep] = useState(1)
@@ -235,7 +250,7 @@ function App() {
           headers: { 'Content-Type': 'multipart/form-data' },
         })
       }
-      pushMessage('success', '✅ ¡Registro completado con éxito!')
+      pushMessage('success', '¡Registro completado con éxito!')
       setKiosk(initialKiosk)
       setKioskRepresentados([])
       setKioskRepresentadosCount(0)
@@ -315,7 +330,7 @@ function App() {
       link.click()
       link.remove()
       window.URL.revokeObjectURL(blobUrl)
-      pushMessage('success', `📥 Exportación ${format.toUpperCase()} descargada.`)
+      pushMessage('success', `Exportación ${format.toUpperCase()} descargada.`)
     } catch (error) {
       pushMessage('error', 'No se pudo exportar.')
     }
@@ -326,7 +341,7 @@ function App() {
     setLoading(true)
     try {
       await axios.patch(`${API_URL}/admin/records/${editRecord.id}`, editRecord, { headers: authHeaders })
-      pushMessage('success', '✅ Registro actualizado en tiempo real.')
+      pushMessage('success', 'Registro actualizado en tiempo real.')
       setEditRecord(null)
       fetchRecords(recordsPage)
     } catch (error) {
@@ -463,7 +478,7 @@ function App() {
         {/* Copyright */}
         <div className='flex flex-col sm:flex-row items-center justify-between gap-2'>
           <p className='text-slate-500 text-xs'>
-            &copy; {new Date().getFullYear()} <span className='text-cyan-400 font-semibold'>JEAN</span>. Todos los derechos reservados.
+            &copy; {new Date().getFullYear()} <span className='text-cyan-400 font-semibold'>Versa<span className='text-white/50'>.</span>Js System</span>. Todos los derechos reservados.
           </p>
           <p className='text-slate-600 text-xs'>
             Hecho con <span className='text-cyan-400'>♥</span> en Caracas, Venezuela · v1.0.0
@@ -508,26 +523,27 @@ function App() {
               <p className='text-slate-300 text-lg sm:text-xl max-w-xl leading-relaxed mb-8'>
                 Captura datos, fotos y acompañantes en segundos. Facturación sincronizada, panel master y control total desde cualquier sede.
               </p>
+              {/* ─── HERO ACTIONS ─── */}
               <div className='flex flex-wrap gap-4'>
                 <button onClick={() => { setView('kiosk'); setKiosk(p => ({...p, sede: p.sede || sedes[0] || ''})) }} className='k-btn-primary text-lg px-8 py-4 animate-pulse-glow'>
-                  🚀 Iniciar Registro
+                  Iniciar Registro
                 </button>
                 <button onClick={() => setView('admin-login')} className='k-btn-outline text-lg px-8 py-4'>
-                  🔐 Panel Admin
+                  Panel Admin
                 </button>
               </div>
             </div>
 
             {/* Right - Stats & Cards */}
-            <div className='grid grid-cols-2 gap-4 animate-fade-in'>
+            <div className='grid grid-cols-2 gap-4'>
               {[
-                { number: '⏱️', label: '< 2 min', desc: 'Registro exprés' },
-                { number: '📸', label: 'Foto + datos', desc: 'Captura integrada' },
-                { number: '🔗', label: 'Multi-sede', desc: 'Candelaria · Chacao' },
-                { number: '📊', label: 'Panel vivo', desc: 'Tiempo real' },
+                { icon: 'Z', label: '< 2 min', desc: 'Registro exprés en pocos pasos', color: 'from-cyan-400 to-blue-500' },
+                { icon: 'P', label: 'Foto + datos', desc: 'Captura integrada con cámara', color: 'from-indigo-400 to-purple-500' },
+                { icon: 'S', label: 'Multi-sede', desc: 'Candelaria · Chacao', color: 'from-emerald-400 to-teal-500' },
+                { icon: 'L', label: 'Panel vivo', desc: 'Datos actualizados al instante', color: 'from-amber-400 to-orange-500' },
               ].map((card, i) => (
-                <div key={i} className='glass-card rounded-2xl p-5 text-center'>
-                  <div className='text-3xl mb-2'>{card.number}</div>
+                <div key={i} className={`glass-card rounded-2xl p-5 text-center reveal-${i + 1}`} style={scrollSections[`hero-card-${i}`] ? {} : { opacity: 0, transform: 'translateY(20px)' }} ref={scrollRef(`hero-card-${i}`)}>
+                  <div className={`w-10 h-10 mx-auto mb-3 rounded-xl bg-gradient-to-br ${card.color} flex items-center justify-center text-white font-bold text-sm shadow-lg`}>{card.icon}</div>
                   <div className='text-white font-bold text-sm'>{card.label}</div>
                   <div className='text-slate-400 text-xs mt-1'>{card.desc}</div>
                 </div>
@@ -537,27 +553,96 @@ function App() {
         </div>
       </section>
 
-      {/* ─── FEATURES ─── */}
-      <section className='ninja-bg py-16 px-4 sm:px-8'>
-        <div className='max-w-7xl mx-auto'>
-          <div className='text-center mb-12'>
-            <p className='text-cyan-300 text-sm tracking-widest mb-2'>¿CÓMO FUNCIONA?</p>
-            <h2 className='text-3xl sm:text-4xl font-black text-white'>Tu experiencia VERSA en 4 pasos</h2>
+      {/* ─── FEATURES: Experiencia Inmersiva ─── */}
+      <section ref={scrollRef('features')} className='ninja-bg py-24 px-4 sm:px-8 relative overflow-hidden'>
+        {/* Background decorative elements */}
+        <div className='absolute top-0 left-1/4 w-96 h-96 bg-cyan-500/5 rounded-full blur-3xl' />
+        <div className='absolute bottom-0 right-1/4 w-96 h-96 bg-indigo-500/5 rounded-full blur-3xl' />
+
+        <div className='max-w-7xl mx-auto relative z-10'>
+          <div className='text-center mb-16' style={scrollSections['features'] ? {} : { opacity: 0, transform: 'translateY(30px)' }}>
+            <span className='text-cyan-300 text-sm tracking-[0.3em] uppercase font-semibold'>El Proceso</span>
+            <h2 className='text-4xl sm:text-5xl font-black text-white mt-3 mb-4 leading-tight'>
+              Tu experiencia{' '}
+              <span className='bg-gradient-to-r from-cyan-300 via-indigo-300 to-purple-300 bg-clip-text text-transparent'>VERSA</span>
+            </h2>
+            <div className='w-24 h-1 mx-auto bg-gradient-to-r from-cyan-400 to-indigo-500 rounded-full' />
           </div>
 
-          <div className='grid sm:grid-cols-2 lg:grid-cols-4 gap-6'>
-            {[
-              { icon: '1️⃣', title: 'Identificación', desc: 'Ingresa tu cédula y selecciona la sede Ninja Park.' },
-              { icon: '2️⃣', title: 'Datos personales', desc: 'Nombre, email, celular y fecha de nacimiento.' },
-              { icon: '3️⃣', title: 'Acompañantes', desc: 'Agrega los representados que ingresarán contigo.' },
-              { icon: '4️⃣', title: 'Foto + Listo', desc: 'Toma una foto y finaliza. Facturación sincronizada.' },
-            ].map((step, i) => (
-              <div key={i} className='glass-card rounded-2xl p-6 animate-fade-up' style={{ animationDelay: `${i * 0.1}s` }}>
-                <div className='text-3xl mb-3'>{step.icon}</div>
-                <h3 className='text-white font-bold text-lg mb-2'>{step.title}</h3>
-                <p className='text-slate-400 text-sm'>{step.desc}</p>
-              </div>
-            ))}
+          {/* Timeline / Steps */}
+          <div className='relative'>
+            {/* Vertical connecting line (desktop) */}
+            <div className='hidden lg:block absolute left-1/2 top-0 bottom-0 w-px bg-gradient-to-b from-cyan-400/40 via-indigo-400/40 to-purple-400/40' />
+
+            <div className='space-y-20 lg:space-y-28'>
+              {[
+                {
+                  num: '01',
+                  title: 'Identificación',
+                  subtitle: 'Tu primer contacto con VERSA',
+                  desc: 'Ingresa tu número de cédula y selecciona la sede Ninja Park donde deseas ingresar. El sistema reconoce si ya existes y precarga tus datos automáticamente.',
+                  color: 'from-cyan-400 to-blue-500',
+                  icon: 'ID',
+                  align: 'left',
+                },
+                {
+                  num: '02',
+                  title: 'Datos Personales',
+                  subtitle: 'Completa tu perfil digital',
+                  desc: 'Capturamos tu nombre, email, celular y fecha de nacimiento. Toda tu información viaja cifrada y protegida bajo los más altos estándares de seguridad.',
+                  color: 'from-indigo-400 to-purple-500',
+                  icon: 'DB',
+                  align: 'right',
+                },
+                {
+                  num: '03',
+                  title: 'Acompañantes',
+                  subtitle: 'Registro grupal en un instante',
+                  desc: 'Agrega los representados que ingresarán contigo. VERSA gestiona grupos de cualquier tamaño, ideal para familias y eventos especiales.',
+                  color: 'from-purple-400 to-pink-500',
+                  icon: 'GR',
+                  align: 'left',
+                },
+                {
+                  num: '04',
+                  title: 'Foto + Listo',
+                  subtitle: 'Finaliza con un selfie',
+                  desc: 'Toma una foto desde la cámara del kiosko o dispositivo. El registro queda completado al instante y la facturación se sincroniza en tiempo real con el panel administrativo.',
+                  color: 'from-amber-400 to-orange-500',
+                  icon: 'OK',
+                  align: 'right',
+                },
+              ].map((step, i) => (
+                <div key={i} ref={scrollRef(`step-${i}`)} className={`flex flex-col lg:flex-row items-center gap-8 lg:gap-12 ${step.align === 'right' ? 'lg:flex-row-reverse' : ''}`} style={scrollSections[`step-${i}`] ? {} : { opacity: 0, transform: 'translateY(40px)' }}>
+                  {/* Content side */}
+                  <div className='flex-1 w-full lg:w-1/2'>
+                    <div className={`${step.align === 'right' ? 'lg:text-left' : 'lg:text-left'} text-left`}>
+                      <span className={`inline-block text-6xl sm:text-7xl font-black bg-gradient-to-r ${step.color} bg-clip-text text-transparent opacity-20 leading-none mb-2 select-none`}>
+                        {step.num}
+                      </span>
+                      <h3 className='text-2xl sm:text-3xl font-bold text-white mb-2'>{step.title}</h3>
+                      <p className='text-cyan-200/80 text-sm font-medium mb-3'>{step.subtitle}</p>
+                      <p className='text-slate-400 text-base leading-relaxed max-w-lg'>{step.desc}</p>
+                    </div>
+                  </div>
+
+                  {/* Visual side */}
+                  <div className='flex-1 w-full lg:w-1/2 flex justify-center'>
+                    <div className='relative group'>
+                      <div className={`w-48 h-48 sm:w-56 sm:h-56 rounded-3xl bg-gradient-to-br ${step.color} p-[2px] shadow-xl transition-transform duration-500 group-hover:scale-105`}>
+                        <div className='w-full h-full rounded-3xl ninja-bg flex items-center justify-center'>
+                          <div className={`w-32 h-32 rounded-2xl bg-gradient-to-br ${step.color} flex items-center justify-center shadow-2xl animate-float`}>
+                            <span className='text-white text-3xl font-black opacity-90'>{step.icon}</span>
+                          </div>
+                        </div>
+                      </div>
+                      {/* Glow */}
+                      <div className={`absolute -inset-4 bg-gradient-to-br ${step.color} opacity-0 group-hover:opacity-20 blur-2xl transition-opacity duration-500 rounded-3xl -z-10`} />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </section>
@@ -572,7 +657,7 @@ function App() {
             Regístrate en segundos y disfruta de tus saltos, juegos y diversión sin filas.
           </p>
           <button onClick={() => { setView('kiosk'); setKiosk(p => ({...p, sede: p.sede || sedes[0] || ''})) }} className='k-btn-gold text-lg px-10 py-4'>
-            🎮 Quiero registrarme ahora
+            Quiero registrarme ahora
           </button>
         </div>
       </section>
@@ -676,7 +761,7 @@ function App() {
                   <video ref={videoRef} autoPlay playsInline muted className='w-full aspect-square object-cover' />
                   {!cameraActive && <div className='absolute inset-0 flex items-center justify-center text-white/60 text-sm'>Iniciando cámara...</div>}
                 </div>
-                <button onClick={capturePhoto} disabled={!cameraActive} className='k-btn-primary w-full disabled:opacity-50'>📸 Tomar foto</button>
+                <button onClick={capturePhoto} disabled={!cameraActive} className='k-btn-primary w-full disabled:opacity-50'>Tomar foto</button>
               </>
             )}
             {kioskPhoto && (
@@ -713,7 +798,7 @@ function App() {
         <form onSubmit={adminLogin} className='space-y-4'>
           <input className='k-input' placeholder='Usuario' value={loginForm.username} onChange={(e) => setLoginForm((p) => ({ ...p, username: e.target.value }))} />
           <input type='password' className='k-input' placeholder='Contraseña' value={loginForm.password} onChange={(e) => setLoginForm((p) => ({ ...p, password: e.target.value }))} />
-          <button disabled={loading} className='k-btn-primary w-full text-lg'>{loading ? 'Ingresando...' : '🔐 Ingresar'}</button>
+          <button disabled={loading} className='k-btn-primary w-full text-lg'>{loading ? 'Ingresando...' : 'Ingresar'}</button>
         </form>
 
         <button onClick={() => setView('welcome')} className='mt-6 text-slate-400 hover:text-white text-sm w-full text-center transition'>← Volver al inicio</button>
@@ -763,8 +848,8 @@ function App() {
               {posResult && (
                 <div className='mt-4 glass-dark rounded-xl p-4 text-sm text-slate-100 space-y-1'>
                   <p className='text-white font-bold'>{posResult.nombre} {posResult.apellido}</p>
-                  <p>📧 {posResult.email || '-'} · 📱 {posResult.celular || '-'}</p>
-                  <p>📍 {posResult.sede || '-'} · 👥 {posResult.representados_count || 0} acompañante(s)</p>
+                  <p className='text-slate-300'>{posResult.email || '-'} · {posResult.celular || '-'}</p>
+                  <p className='text-slate-400'>{posResult.sede || '-'} · {posResult.representados_count || 0} acompañante(s)</p>
                 </div>
               )}
             </div>
@@ -780,11 +865,11 @@ function App() {
               {billingResult && (
                 <div className='mt-4 glass-dark rounded-xl p-4 text-sm text-slate-100 space-y-2'>
                   <p><span className='text-white font-bold'>{billingResult.nombre} {billingResult.apellido}</span></p>
-                  <p>💰 Monto sugerido: <strong className='text-emerald-300'>${billingResult.amount_suggested} {billingResult.currency}</strong></p>
+                  <p>Monto sugerido: <strong className='text-emerald-300'>${billingResult.amount_suggested} {billingResult.currency}</strong></p>
                   <div className='flex gap-2'>
-                    <button onClick={() => sendBillingWebhook('approved')} className='k-btn-sm rounded-lg bg-emerald-500 text-white'>✅ Aprobado</button>
-                    <button onClick={() => sendBillingWebhook('pending')} className='k-btn-sm rounded-lg bg-orange-500 text-white'>⏳ Pendiente</button>
-                    <button onClick={() => sendBillingWebhook('rejected')} className='k-btn-sm rounded-lg bg-rose-500 text-white'>❌ Rechazado</button>
+                    <button onClick={() => sendBillingWebhook('approved')} className='k-btn-sm rounded-lg bg-emerald-500 text-white'>Aprobado</button>
+                    <button onClick={() => sendBillingWebhook('pending')} className='k-btn-sm rounded-lg bg-orange-500 text-white'>Pendiente</button>
+                    <button onClick={() => sendBillingWebhook('rejected')} className='k-btn-sm rounded-lg bg-rose-500 text-white'>Rechazado</button>
                   </div>
                 </div>
               )}
@@ -797,10 +882,10 @@ function App() {
           <div className='space-y-4 animate-fade-up'>
             {/* Filters */}
             <div className='grid grid-cols-1 md:grid-cols-5 gap-3'>
-              <input className='k-input md:col-span-2' placeholder='🔍 Buscar por cédula o nombre...' value={recordsQuery} onChange={(e) => setRecordsQuery(e.target.value)} />
+              <input className='k-input md:col-span-2' placeholder='Buscar por cédula o nombre...' value={recordsQuery} onChange={(e) => setRecordsQuery(e.target.value)} />
               {adminUser?.role === 'master' && (
                 <select className='k-input' value={recordsSede} onChange={(e) => { setRecordsSede(e.target.value) }}>
-                  <option value=''>🏢 Todas las sedes</option>
+                  <option value=''>Todas las sedes</option>
                   {sedes.map((sede) => <option key={sede} value={sede}>{sede}</option>)}
                 </select>
               )}
@@ -809,15 +894,15 @@ function App() {
                 <option value={20}>20 por página</option>
                 <option value={50}>50 por página</option>
               </select>
-              <button onClick={() => fetchRecords(1)} className='k-btn-primary'>🔍 Buscar</button>
+              <button onClick={() => fetchRecords(1)} className='k-btn-primary'>Buscar</button>
             </div>
 
             {/* Export */}
             <div className='flex gap-2 flex-wrap'>
-              <button onClick={() => exportRecords('csv', 'all')} className='k-btn-soft k-btn-sm'>📄 CSV Todo</button>
-              <button onClick={() => exportRecords('xlsx', 'all')} className='k-btn-soft k-btn-sm'>📊 XLSX Todo</button>
-              <button onClick={() => exportRecords('csv', 'page')} className='k-btn-soft k-btn-sm'>📄 CSV Página</button>
-              <button onClick={() => exportRecords('xlsx', 'page')} className='k-btn-soft k-btn-sm'>📊 XLSX Página</button>
+              <button onClick={() => exportRecords('csv', 'all')} className='k-btn-soft k-btn-sm'>CSV Todo</button>
+              <button onClick={() => exportRecords('xlsx', 'all')} className='k-btn-soft k-btn-sm'>XLSX Todo</button>
+              <button onClick={() => exportRecords('csv', 'page')} className='k-btn-soft k-btn-sm'>CSV Página</button>
+              <button onClick={() => exportRecords('xlsx', 'page')} className='k-btn-soft k-btn-sm'>XLSX Página</button>
               <span className='text-slate-400 text-xs self-center ml-auto'>Actualizado cada 10s · {recordsTotal} registros</span>
             </div>
 
@@ -850,7 +935,7 @@ function App() {
                         <td className='py-3 px-3 text-slate-300'>{row.email || '-'}</td>
                         <td className='py-3 px-3'>{row.celular || '-'}</td>
                         <td className='py-3 px-3'>
-                          <button onClick={() => setEditRecord({ ...row })} className='k-btn-soft k-btn-sm'>✏️ Editar</button>
+                          <button onClick={() => setEditRecord({ ...row })} className='k-btn-soft k-btn-sm'>Editar</button>
                         </td>
                       </tr>
                     ))
@@ -874,7 +959,7 @@ function App() {
         {/* Billing events table */}
         {billingEvents.length > 0 && adminTab === 'dashboard' && (
           <div className='mt-5 glass rounded-2xl p-4 animate-fade-up'>
-            <h4 className='text-white font-bold mb-3'>📋 Últimos eventos de facturación</h4>
+            <h4 className='text-white font-bold mb-3'>Últimos eventos de facturación</h4>
             <div className='overflow-auto'>
               <table className='w-full min-w-[600px] text-xs text-slate-100'>
                 <thead className='bg-white/5'>
@@ -937,7 +1022,7 @@ function App() {
             </div>
             <div className='flex justify-end gap-2 mt-5'>
               <button onClick={() => setEditRecord(null)} className='k-btn-soft'>Cancelar</button>
-              <button onClick={saveEditRecord} disabled={loading} className='k-btn-primary'>{loading ? 'Guardando...' : '💾 Guardar Cambios'}</button>
+              <button onClick={saveEditRecord} disabled={loading} className='k-btn-primary'>{loading ? 'Guardando...' : 'Guardar Cambios'}</button>
             </div>
           </div>
         </div>

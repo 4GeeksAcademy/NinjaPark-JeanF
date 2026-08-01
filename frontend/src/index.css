@@ -278,3 +278,14 @@ body {
 	background: rgba(239, 68, 68, 0.9);
 	color: white;
 }
+
+/* ─── Scroll reveal transitions ─── */
+.reveal-1 { transition: all 0.6s ease 0.0s; }
+.reveal-2 { transition: all 0.6s ease 0.1s; }
+.reveal-3 { transition: all 0.6s ease 0.2s; }
+.reveal-4 { transition: all 0.6s ease 0.3s; }
+
+/* ─── Timeline step animations ─── */
+[class*="step-"] > div {
+	transition: all 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+}
