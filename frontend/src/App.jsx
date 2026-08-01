@@ -17,7 +17,7 @@ const initialKiosk = {
 const FOOTER_SECTIONS = {
   terms: {
     title: 'Términos y Condiciones',
-    content: `Al utilizar VERSA y los servicios de Ninja Park, aceptas estos términos. El registro de datos personales es voluntario y necesario para la gestión de ingresos y facturación. Ninja Park se reserva el derecho de actualizar estos términos sin previo aviso.`,
+    content: `Al utilizar SYNAP y los servicios de Ninja Park, aceptas estos términos. El registro de datos personales es voluntario y necesario para la gestión de ingresos y facturación. Ninja Park se reserva el derecho de actualizar estos términos sin previo aviso. SYNAP es una plataforma de VERSA.JS.`,
   },
   privacy: {
     title: 'Políticas de Privacidad',
@@ -63,7 +63,7 @@ function App() {
   const [stream, setStream] = useState(null)
   const videoRef = useRef(null)
 
-  const [adminToken, setAdminToken] = useState(localStorage.getItem('versa_admin_token') || '')
+  const [adminToken, setAdminToken] = useState(localStorage.getItem('synap_admin_token') || '')
   const [adminUser, setAdminUser] = useState(null)
   const [loginForm, setLoginForm] = useState({ username: '', password: '' })
   const [adminTab, setAdminTab] = useState('dashboard')
@@ -160,7 +160,7 @@ function App() {
     axios.get(`${API_URL}/auth/me`, { headers: authHeaders })
       .then((res) => setAdminUser(res.data.user))
       .catch(() => {
-        localStorage.removeItem('versa_admin_token')
+        localStorage.removeItem('synap_admin_token')
         setAdminToken('')
         setAdminUser(null)
       })
@@ -270,7 +270,7 @@ function App() {
     setLoading(true)
     try {
       const response = await axios.post(`${API_URL}/auth/login`, loginForm)
-      localStorage.setItem('versa_admin_token', response.data.token)
+      localStorage.setItem('synap_admin_token', response.data.token)
       setAdminToken(response.data.token)
       setLoginForm({ username: '', password: '' })
       setView('admin')
@@ -281,7 +281,7 @@ function App() {
   }
 
   const adminLogout = () => {
-    localStorage.removeItem('versa_admin_token')
+    localStorage.removeItem('synap_admin_token')
     setAdminToken('')
     setAdminUser(null)
     setView('welcome')
@@ -411,12 +411,15 @@ function App() {
         <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-12'>
           {/* Brand */}
           <div className='lg:col-span-1'>
-            <div className='flex items-center gap-2 mb-4'>
-              <div className='w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-400 to-indigo-500 flex items-center justify-center text-white font-black text-sm'>V</div>
-              <span className='text-white font-bold text-xl'>VERSA</span>
+            <div className='flex items-center gap-3 mb-4'>
+              <div className='w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-400 via-indigo-500 to-purple-600 flex items-center justify-center text-white font-black shadow-lg shadow-cyan-500/25'>S</div>
+              <div>
+                <span className='text-white font-bold text-xl tracking-tight'>SYNAP</span>
+                <span className='block text-slate-500 text-[10px] uppercase tracking-[0.2em] font-medium'>by VERSA.JS</span>
+              </div>
             </div>
             <p className='text-slate-400 text-sm leading-relaxed'>
-              Plataforma inteligente de registro y facturación para Ninja Park. Experiencia digital rápida, segura y moderna.
+              Plataforma inteligente de registro y facturación para centros de entretenimiento. Diseñada por <span className='text-cyan-400/70'>VERSA.JS</span> — tecnología que transforma experiencias.
             </p>
             <div className='flex gap-3 mt-4'>
               <span className='w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-slate-300 text-xs hover:bg-cyan-500/20 hover:text-cyan-300 transition cursor-pointer'>in</span>
@@ -478,10 +481,10 @@ function App() {
         {/* Copyright */}
         <div className='flex flex-col sm:flex-row items-center justify-between gap-2'>
           <p className='text-slate-500 text-xs'>
-            &copy; {new Date().getFullYear()} <span className='text-cyan-400 font-semibold'>Versa<span className='text-white/50'>.</span>Js System</span>. Todos los derechos reservados.
+            &copy; {new Date().getFullYear()} <span className='text-cyan-400 font-semibold'>VERSA<span className='text-white/30'>.</span>JS</span>. Todos los derechos reservados.
           </p>
           <p className='text-slate-600 text-xs'>
-            Hecho con <span className='text-cyan-400'>♥</span> en Caracas, Venezuela · v1.0.0
+            Powered by <span className='text-cyan-400'>SYNAP</span> · Hecho en Caracas, Venezuela · v1.0.0
           </p>
         </div>
       </div>
@@ -494,10 +497,12 @@ function App() {
       {/* ─── NAV ─── */}
       <nav className='fixed top-0 left-0 right-0 z-50 px-4 sm:px-8 py-3'>
         <div className='max-w-7xl mx-auto flex items-center justify-between'>
-          <div className='flex items-center gap-2'>
-            <div className='w-9 h-9 rounded-lg bg-gradient-to-br from-cyan-400 via-indigo-500 to-purple-600 flex items-center justify-center text-white font-black shadow-lg shadow-cyan-500/25'>V</div>
-            <span className='text-white font-bold text-xl tracking-tight'>VERSA</span>
-            <span className='hidden sm:inline text-slate-500 text-xs ml-1'>by Ninja Park</span>
+          <div className='flex items-center gap-3'>
+            <div className='w-9 h-9 rounded-lg bg-gradient-to-br from-cyan-400 via-indigo-500 to-purple-600 flex items-center justify-center text-white font-black shadow-lg shadow-cyan-500/25 text-sm'>S</div>
+            <div>
+              <span className='text-white font-bold text-xl tracking-tight leading-none'>SYNAP</span>
+              <span className='block text-slate-500 text-[9px] uppercase tracking-[0.25em] font-medium leading-tight'>by VERSA.JS</span>
+            </div>
           </div>
           <div className='flex items-center gap-3'>
             <button onClick={() => { setView('kiosk'); setKiosk(p => ({...p, sede: p.sede || sedes[0] || ''})) }} className='k-btn-outline k-btn-sm'>Registrarse</button>
@@ -514,14 +519,16 @@ function App() {
             <div className='animate-slide-up'>
               <div className='inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full px-4 py-1.5 mb-5'>
                 <span className='w-2 h-2 rounded-full bg-emerald-400 animate-pulse' />
-                <span className='text-slate-300 text-xs sm:text-sm'>Plataforma activa — 2 sedes</span>
+                <span className='text-slate-300 text-xs sm:text-sm'>SYNAP activo — 2 sedes</span>
+                <span className='w-px h-4 bg-white/20 mx-1' />
+                <span className='text-cyan-300/80 text-xs font-medium'>by VERSA.JS</span>
               </div>
               <h1 className='text-4xl sm:text-5xl lg:text-7xl font-black text-white leading-[1.1] mb-5'>
                 Registro inteligente{' '}
-                <span className='bg-gradient-to-r from-cyan-300 via-indigo-300 to-purple-300 bg-clip-text text-transparent'>Ninja Park</span>
+                <span className='bg-gradient-to-r from-cyan-300 via-indigo-300 to-purple-300 bg-clip-text text-transparent'>SYNAP</span>
               </h1>
               <p className='text-slate-300 text-lg sm:text-xl max-w-xl leading-relaxed mb-8'>
-                Captura datos, fotos y acompañantes en segundos. Facturación sincronizada, panel master y control total desde cualquier sede.
+                Captura datos, fotos y acompañantes en segundos. Facturación sincronizada, panel master y control total desde cualquier sede. Una plataforma <span className='text-cyan-300 font-semibold'>VERSA.JS</span>.
               </p>
               {/* ─── HERO ACTIONS ─── */}
               <div className='flex flex-wrap gap-4'>
@@ -564,7 +571,7 @@ function App() {
             <span className='text-cyan-300 text-sm tracking-[0.3em] uppercase font-semibold'>El Proceso</span>
             <h2 className='text-4xl sm:text-5xl font-black text-white mt-3 mb-4 leading-tight'>
               Tu experiencia{' '}
-              <span className='bg-gradient-to-r from-cyan-300 via-indigo-300 to-purple-300 bg-clip-text text-transparent'>VERSA</span>
+              <span className='bg-gradient-to-r from-cyan-300 via-indigo-300 to-purple-300 bg-clip-text text-transparent'>SYNAP</span>
             </h2>
             <div className='w-24 h-1 mx-auto bg-gradient-to-r from-cyan-400 to-indigo-500 rounded-full' />
           </div>
@@ -579,7 +586,7 @@ function App() {
                 {
                   num: '01',
                   title: 'Identificación',
-                  subtitle: 'Tu primer contacto con VERSA',
+                  subtitle: 'Tu primer contacto con SYNAP',
                   desc: 'Ingresa tu número de cédula y selecciona la sede Ninja Park donde deseas ingresar. El sistema reconoce si ya existes y precarga tus datos automáticamente.',
                   color: 'from-cyan-400 to-blue-500',
                   icon: 'ID',
@@ -598,7 +605,7 @@ function App() {
                   num: '03',
                   title: 'Acompañantes',
                   subtitle: 'Registro grupal en un instante',
-                  desc: 'Agrega los representados que ingresarán contigo. VERSA gestiona grupos de cualquier tamaño, ideal para familias y eventos especiales.',
+                  desc: 'Agrega los representados que ingresarán contigo. SYNAP gestiona grupos de cualquier tamaño, ideal para familias y eventos especiales.',
                   color: 'from-purple-400 to-pink-500',
                   icon: 'GR',
                   align: 'left',
@@ -651,10 +658,10 @@ function App() {
       <section className='hero-bg py-16 px-4 sm:px-8'>
         <div className='max-w-4xl mx-auto text-center'>
           <h2 className='text-3xl sm:text-4xl font-black text-white mb-4'>
-            ¿Listo para la experiencia Ninja Park?
+            ¿Listo para <span className='bg-gradient-to-r from-cyan-300 to-indigo-300 bg-clip-text text-transparent'>SYNAP</span>?
           </h2>
           <p className='text-slate-300 text-lg mb-8 max-w-2xl mx-auto'>
-            Regístrate en segundos y disfruta de tus saltos, juegos y diversión sin filas.
+            Regístrate en segundos y disfruta de tus saltos, juegos y diversión sin filas. Tecnología <span className='text-cyan-300 font-semibold'>VERSA.JS</span>.
           </p>
           <button onClick={() => { setView('kiosk'); setKiosk(p => ({...p, sede: p.sede || sedes[0] || ''})) }} className='k-btn-gold text-lg px-10 py-4'>
             Quiero registrarme ahora
@@ -678,8 +685,8 @@ function App() {
       <div className='max-w-3xl mx-auto glass rounded-3xl p-6 sm:p-10'>
         <div className='flex items-center justify-between mb-6'>
           <div className='flex items-center gap-2'>
-            <div className='w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-400 to-indigo-500 flex items-center justify-center text-white font-black text-xs'>V</div>
-            <h2 className='text-2xl sm:text-3xl font-black text-white'>Kiosko Cliente</h2>
+            <div className='w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-400 to-indigo-500 flex items-center justify-center text-white font-black text-xs'>S</div>
+            <h2 className='text-2xl sm:text-3xl font-black text-white'>Kiosko SYNAP</h2>
           </div>
           <button onClick={() => { stopCamera(); setView('welcome') }} className='text-white/70 hover:text-white text-sm'>← Volver</button>
         </div>
@@ -790,10 +797,10 @@ function App() {
     <div className='ninja-bg min-h-screen p-6 flex items-center justify-center'>
       <div className='glass-dark rounded-3xl p-8 w-full max-w-md animate-scale-in'>
         <div className='flex items-center justify-center gap-2 mb-4'>
-          <div className='w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-400 to-indigo-500 flex items-center justify-center text-white font-black'>V</div>
+          <div className='w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-400 via-indigo-500 to-purple-600 flex items-center justify-center text-white font-black shadow-lg shadow-cyan-500/25'>S</div>
         </div>
         <h2 className='text-3xl font-black text-white text-center mb-1'>Acceso Administrativo</h2>
-        <p className='text-slate-400 text-center text-sm mb-8'>Panel de control VERSA — Ninja Park</p>
+        <p className='text-slate-400 text-center text-sm mb-8'>Panel de control SYNAP — Ninja Park</p>
 
         <form onSubmit={adminLogin} className='space-y-4'>
           <input className='k-input' placeholder='Usuario' value={loginForm.username} onChange={(e) => setLoginForm((p) => ({ ...p, username: e.target.value }))} />
@@ -817,9 +824,9 @@ function App() {
         {/* Header */}
         <div className='flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 mb-5'>
           <div className='flex items-center gap-3'>
-            <div className='w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-400 to-indigo-500 flex items-center justify-center text-white font-black text-sm'>V</div>
+            <div className='w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-400 via-indigo-500 to-purple-600 flex items-center justify-center text-white font-black text-sm shadow-lg shadow-cyan-500/25'>S</div>
             <div>
-              <h2 className='text-2xl sm:text-3xl font-black text-white'>Admin Panel</h2>
+              <h2 className='text-2xl sm:text-3xl font-black text-white leading-none'>SYNAP Admin</h2>
               <p className='text-slate-400 text-xs'>
                 {adminUser?.username} · <span className='text-cyan-300 font-semibold'>{adminUser?.role?.toUpperCase()}</span>
                 {adminUser?.sede && ` · ${adminUser.sede}`}
