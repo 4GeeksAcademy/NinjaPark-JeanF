@@ -19,7 +19,11 @@ const {
 const app = express();
 const PORT = process.env.PORT || 3001;
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
-const JWT_SECRET = process.env.JWT_SECRET || 'versa_dev_secret_change_me';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET || JWT_SECRET.length < 32) {
+  console.error('FATAL: falta JWT_SECRET o tiene menos de 32 caracteres. El servidor no arranca.');
+  process.exit(1);
+}
 const KIOSK_DEFAULT_SEDE = process.env.KIOSK_DEFAULT_SEDE || 'Ninja Park Candelaria';
 const SEDES = [
   'Ninja Park Candelaria',
@@ -1038,58 +1042,30 @@ app.get('/api/pos/autocomplete/:cedula', authRequired, requireRole('cajero', 'ad
 });
 
 const ensureDefaultUsers = async () => {
-  const defaults = [
-    {
-      username: 'jeanf9839@gmail.com',
-      password: 'The.poison123',
-      role: 'master',
-      sede: null,
-      nombre: 'Jean Franco',
-    },
-    {
-      username: 'admin.candelaria',
-      password: 'AdminCandelaria2026!',
-      role: 'admin',
-      sede: 'Ninja Park Candelaria',
-      nombre: 'Admin Candelaria',
-    },
-    {
-      username: 'cajero.candelaria',
-      password: 'CajeroCandelaria2026!',
-      role: 'cajero',
-      sede: 'Ninja Park Candelaria',
-      nombre: 'Cajero Candelaria',
-    },
-    {
-      username: 'admin.chacao',
-      password: 'AdminChacao2026!',
-      role: 'admin',
-      sede: 'Ninja Park Chacao',
-      nombre: 'Admin Chacao',
-    },
-    {
-      username: 'cajero.chacao',
-      password: 'CajeroChacao2026!',
-      role: 'cajero',
-      sede: 'Ninja Park Chacao',
-      nombre: 'Cajero Chacao',
-    },
-  ];
+  if (process.env.SEED_DEFAULT_USERS !== 'true') return;
 
-  for (const item of defaults) {
-    const existing = await User.findOne({ where: { username: item.username } });
-    if (!existing) {
-      const password_hash = await bcrypt.hash(item.password, 10);
-      await User.create({
-        username: item.username,
-        password_hash,
-        role: item.role,
-        sede: item.sede,
-        nombre: item.nombre,
-        activo: true,
-      });
-    }
+  const username = process.env.MASTER_USERNAME;
+  const password = process.env.MASTER_PASSWORD;
+  if (!username || !password) {
+    throw new Error('SEED_DEFAULT_USERS=true requiere MASTER_USERNAME y MASTER_PASSWORD');
   }
+  if (password.length < 12) {
+    throw new Error('MASTER_PASSWORD debe tener al menos 12 caracteres');
+  }
+
+  const existing = await User.findOne({ where: { username } });
+  if (existing) return;
+
+  const password_hash = await bcrypt.hash(password, 12);
+  await User.create({
+    username,
+    password_hash,
+    role: 'master',
+    sede: null,
+    nombre: process.env.MASTER_NOMBRE || 'Master',
+    activo: true,
+  });
+  console.log('Usuario master inicial creado: ' + username);
 };
 
 // Iniciar servidor
@@ -1104,6 +1080,7 @@ async function startServer() {
     });
   } catch (error) {
     console.error('Error al iniciar el servidor:', error);
+    process.exit(1);
   }
 }
 
