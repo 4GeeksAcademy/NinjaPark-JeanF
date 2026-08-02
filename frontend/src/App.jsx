@@ -85,6 +85,8 @@ function App() {
   const [billingEvents, setBillingEvents] = useState([])
 
   const [footerSection, setFooterSection] = useState(null)
+  const [showCelebration, setShowCelebration] = useState(false)
+  const [cameraReady, setCameraReady] = useState(false)
 
   const authHeaders = useMemo(() => (
     adminToken ? { Authorization: `Bearer ${adminToken}` } : {}
@@ -152,6 +154,10 @@ function App() {
   useEffect(() => {
     if (videoRef.current && stream) {
       videoRef.current.srcObject = stream
+      videoRef.current.onloadedmetadata = () => {
+        videoRef.current?.play()
+        setCameraReady(true)
+      }
     }
   }, [stream])
 
@@ -232,7 +238,8 @@ function App() {
       }
     }
     setKioskStep(4)
-    setTimeout(() => startCamera(), 250)
+    setCameraReady(false)
+    setTimeout(() => startCamera(), 350)
   }
 
   const submitKiosk = async (skipPhoto = false) => {
@@ -258,6 +265,7 @@ function App() {
         })
       }
       pushMessage('success', '¡Registro completado con éxito!')
+      setShowCelebration(true)
       setKiosk(initialKiosk)
       setKioskRepresentados([])
       setKioskRepresentadosCount(0)
@@ -435,38 +443,58 @@ function App() {
             </div>
           </div>
 
-          {/* Links */}
-          {[
-            { label: 'Inicio', onClick: () => { setFooterSection(null); window.scrollTo({top:0,behavior:'smooth'}) } },
-            { label: 'Registro Cliente', onClick: () => { setFooterSection(null); setView('kiosk'); setKiosk(p => ({...p, sede: p.sede || sedes[0] || ''})) } },
-            { label: 'Acceso Admin', onClick: () => { setFooterSection(null); setView('admin-login') } },
-          ].map((link, i) => (
-            <div key={i}>
-              <h4 className='text-white font-semibold mb-3 text-sm uppercase tracking-wider'>Navegación</h4>
-              <div className='space-y-2'>
-                <p key={link.label} className='footer-link text-sm' onClick={link.onClick}>{link.label}</p>
-              </div>
+          {/* Navegación — single unified section */}
+          <div>
+            <h4 className='text-white font-semibold mb-4 text-sm uppercase tracking-wider'>Navegación</h4>
+            <div className='space-y-3'>
+              <button
+                onClick={() => { setFooterSection(null); window.scrollTo({top:0,behavior:'smooth'}) }}
+                className='w-full text-left group flex items-center gap-3 px-4 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-cyan-400/40 transition-all duration-300'
+              >
+                <span className='w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center text-white text-xs font-bold shadow-lg shadow-cyan-500/20 group-hover:scale-110 transition-transform duration-300'>⌂</span>
+                <span className='text-slate-300 group-hover:text-white text-sm font-medium transition-colors'>Inicio</span>
+              </button>
+              <button
+                onClick={() => { setFooterSection(null); setView('kiosk'); setKiosk(p => ({...p, sede: p.sede || sedes[0] || ''})) }}
+                className='w-full text-left group flex items-center gap-3 px-4 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-indigo-400/40 transition-all duration-300'
+              >
+                <span className='w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white text-xs font-bold shadow-lg shadow-indigo-500/20 group-hover:scale-110 transition-transform duration-300'>✎</span>
+                <span className='text-slate-300 group-hover:text-white text-sm font-medium transition-colors'>Registro Cliente</span>
+              </button>
+              <button
+                onClick={() => { setFooterSection(null); setView('admin-login') }}
+                className='w-full text-left group flex items-center gap-3 px-4 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-purple-400/40 transition-all duration-300'
+              >
+                <span className='w-8 h-8 rounded-lg bg-gradient-to-br from-purple-400 to-pink-500 flex items-center justify-center text-white text-xs font-bold shadow-lg shadow-purple-500/20 group-hover:scale-110 transition-transform duration-300'>⚙</span>
+                <span className='text-slate-300 group-hover:text-white text-sm font-medium transition-colors'>Acceso Admin</span>
+              </button>
             </div>
-          ))}
+          </div>
 
           {/* Legal */}
           <div>
-            <h4 className='text-white font-semibold mb-3 text-sm uppercase tracking-wider'>Legal</h4>
-            <div className='space-y-2'>
+            <h4 className='text-white font-semibold mb-4 text-sm uppercase tracking-wider'>Legal</h4>
+            <div className='space-y-3'>
               {Object.entries(FOOTER_SECTIONS).map(([key, section]) => (
-                <p key={key} className='footer-link text-sm' onClick={() => setFooterSection(footerSection === key ? null : key)}>{section.title}</p>
+                <p key={key} className='footer-link text-sm flex items-center gap-2' onClick={() => setFooterSection(footerSection === key ? null : key)}>
+                  <span className='w-1.5 h-1.5 rounded-full bg-cyan-400/60 opacity-0 group-hover:opacity-100 transition-opacity' />
+                  {section.title}
+                </p>
               ))}
             </div>
           </div>
 
           {/* Sedes */}
           <div>
-            <h4 className='text-white font-semibold mb-3 text-sm uppercase tracking-wider'>Sedes</h4>
-            <div className='space-y-2'>
-              {sedes.map((sede) => (
-                <p key={sede} className='footer-link text-sm'>{sede}</p>
+            <h4 className='text-white font-semibold mb-4 text-sm uppercase tracking-wider'>Sedes</h4>
+            <div className='space-y-3'>
+              {sedes.map((sede, i) => (
+                <div key={sede} className='flex items-center gap-3 px-3 py-2 rounded-xl bg-white/[0.03] border border-white/5 animate-fade-up' style={{animationDelay: `${i * 0.1}s`}}>
+                  <span className='w-2 h-2 rounded-full bg-emerald-400/60 animate-pulse' />
+                  <span className='text-slate-300 text-sm'>{sede}</span>
+                </div>
               ))}
-              <p className='text-slate-500 text-xs mt-3'>📍 Caracas, Venezuela</p>
+              <p className='text-slate-500 text-xs mt-3 flex items-center gap-1.5'>📍 Caracas, Venezuela</p>
             </div>
           </div>
         </div>
@@ -596,8 +624,13 @@ function App() {
 
           {/* Timeline / Steps */}
           <div className='relative'>
-            {/* Vertical connecting line (desktop) */}
-            <div className='hidden lg:block absolute left-1/2 top-0 bottom-0 w-px bg-gradient-to-b from-cyan-400/40 via-indigo-400/40 to-purple-400/40' />
+            {/* Animated vertical connecting line (desktop) */}
+            <div className='hidden lg:block absolute left-1/2 top-0 bottom-0' style={{width: '3px'}}>
+              <div className='absolute inset-0 bg-gradient-to-b from-cyan-400/40 via-indigo-400/40 to-purple-400/40 animate-pulse-glow' style={{borderRadius: '2px'}} />
+              <div className='absolute inset-0 bg-gradient-to-b from-cyan-300 via-indigo-300 to-purple-300 animate-shimmer' style={{borderRadius: '2px', opacity: 0.3}} />
+              {/* Animated dot traveling along the line */}
+              <div className='absolute left-1/2 -translate-x-1/2 w-3 h-3 rounded-full bg-cyan-400 shadow-lg shadow-cyan-400/50 animate-float' style={{animationDuration: '4s'}} />
+            </div>
 
             <div className='space-y-20 lg:space-y-28'>
               {[
@@ -607,6 +640,7 @@ function App() {
                   subtitle: 'Tu primer contacto con SYNAP',
                   desc: 'Ingresa tu número de cédula y selecciona la sede Ninja Park donde deseas ingresar. El sistema reconoce si ya existes y precarga tus datos automáticamente.',
                   color: 'from-cyan-400 to-blue-500',
+                  glowColor: 'shadow-cyan-500/30',
                   icon: 'ID',
                   align: 'left',
                 },
@@ -616,6 +650,7 @@ function App() {
                   subtitle: 'Completa tu perfil digital',
                   desc: 'Capturamos tu nombre, email, celular y fecha de nacimiento. Toda tu información viaja cifrada y protegida bajo los más altos estándares de seguridad.',
                   color: 'from-indigo-400 to-purple-500',
+                  glowColor: 'shadow-indigo-500/30',
                   icon: 'DB',
                   align: 'right',
                 },
@@ -625,6 +660,7 @@ function App() {
                   subtitle: 'Registro grupal en un instante',
                   desc: 'Agrega los representados que ingresarán contigo. SYNAP gestiona grupos de cualquier tamaño, ideal para familias y eventos especiales.',
                   color: 'from-purple-400 to-pink-500',
+                  glowColor: 'shadow-purple-500/30',
                   icon: 'GR',
                   align: 'left',
                 },
@@ -634,6 +670,7 @@ function App() {
                   subtitle: 'Finaliza con un selfie',
                   desc: 'Toma una foto desde la cámara del kiosko o dispositivo. El registro queda completado al instante y la facturación se sincroniza en tiempo real con el panel administrativo.',
                   color: 'from-amber-400 to-orange-500',
+                  glowColor: 'shadow-amber-500/30',
                   icon: 'OK',
                   align: 'right',
                 },
@@ -651,18 +688,40 @@ function App() {
                     </div>
                   </div>
 
-                  {/* Visual side */}
+                  {/* Visual side — fluid animated cards */}
                   <div className='flex-1 w-full lg:w-1/2 flex justify-center'>
                     <div className='relative group'>
-                      <div className={`w-48 h-48 sm:w-56 sm:h-56 rounded-3xl bg-gradient-to-br ${step.color} p-[2px] shadow-xl transition-all duration-500 group-hover:scale-105 group-hover:shadow-2xl`}>
-                        <div className='w-full h-full rounded-3xl ninja-bg flex items-center justify-center'>
-                          <div className={`w-32 h-32 rounded-2xl bg-gradient-to-br ${step.color} flex items-center justify-center shadow-2xl animate-float`} style={{animationDelay: `${i * 0.2}s`, animationDuration: `${5 + i * 0.5}s`}}>
+                      {/* Glow ring on hover */}
+                      <div className={`absolute -inset-6 bg-gradient-to-br ${step.color} opacity-0 group-hover:opacity-25 blur-3xl transition-all duration-700 rounded-full -z-10 scale-75 group-hover:scale-110`} />
+                      {/* Step indicator badge */}
+                      <div className='absolute -top-3 -right-3 z-10'>
+                        <div className='w-10 h-10 rounded-full bg-gradient-to-br from-slate-900 to-slate-800 border-2 border-white/20 flex items-center justify-center text-white text-xs font-bold shadow-xl backdrop-blur-sm animate-float' style={{animationDuration: '4s', animationDelay: `${i * 0.5}s`}}>
+                          <span className='bg-gradient-to-r from-cyan-200 to-indigo-200 bg-clip-text text-transparent'>P{step.num}</span>
+                        </div>
+                      </div>
+                      {/* Card */}
+                      <div className={`w-48 h-48 sm:w-56 sm:h-56 rounded-3xl bg-gradient-to-br ${step.color} p-[2px] shadow-xl transition-all duration-700 group-hover:scale-105 group-hover:shadow-2xl ${step.glowColor}`}
+                        style={{
+                          animation: `floatY ${5 + i * 0.5}s ease-in-out ${i * 0.2}s infinite`,
+                        }}
+                      >
+                        <div className='w-full h-full rounded-3xl ninja-bg flex items-center justify-center overflow-hidden relative'>
+                          {/* Particle sparkles inside card */}
+                          <div className='absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700'>
+                            {Array.from({length:5}).map((_, j) => (
+                              <div key={j} className='absolute w-1 h-1 rounded-full bg-white animate-ping' style={{
+                                left: `${20 + j * 15}%`,
+                                top: `${20 + (j * 7) % 60}%`,
+                                animationDelay: `${j * 0.3}s`,
+                                animationDuration: '1.5s',
+                              }} />
+                            ))}
+                          </div>
+                          <div className={`w-32 h-32 rounded-2xl bg-gradient-to-br ${step.color} flex items-center justify-center shadow-2xl animate-float transition-all duration-500 group-hover:scale-110 group-hover:rotate-3`} style={{animationDelay: `${i * 0.2}s`, animationDuration: `${5 + i * 0.5}s`}}>
                             <span className='text-white text-3xl font-black opacity-90'>{step.icon}</span>
                           </div>
                         </div>
                       </div>
-                      {/* Glow */}
-                      <div className={`absolute -inset-4 bg-gradient-to-br ${step.color} opacity-0 group-hover:opacity-20 blur-2xl transition-opacity duration-500 rounded-3xl -z-10`} />
                     </div>
                   </div>
                 </div>
@@ -781,7 +840,7 @@ function App() {
           </div>
         )}
 
-        {/* Step 4 */}
+        {/* Step 4 — with fluid animations */}
         {kioskStep === 4 && (
           <div className='space-y-4 animate-fade-up'>
             <h3 className='text-white text-2xl font-bold'>Paso 4: Foto</h3>
@@ -790,21 +849,64 @@ function App() {
               <>
                 <div className='relative rounded-3xl overflow-hidden border border-white/15 bg-slate-900'>
                   <video ref={videoRef} autoPlay playsInline muted className='w-full aspect-square object-cover' />
-                  {!cameraActive && <div className='absolute inset-0 flex items-center justify-center text-white/60 text-sm'>Iniciando cámara...</div>}
+                  {!cameraActive && (
+                    <div className='absolute inset-0 flex flex-col items-center justify-center gap-3 bg-slate-900/80 animate-fade-in'>
+                      <div className='relative'>
+                        <div className='w-16 h-16 rounded-full border-4 border-cyan-400/30 border-t-cyan-400 animate-spin' />
+                        <div className='absolute inset-0 flex items-center justify-center'>
+                          <span className='text-2xl'>📷</span>
+                        </div>
+                      </div>
+                      <span className='text-white/70 text-sm font-medium'>Iniciando cámara...</span>
+                      <span className='text-white/40 text-xs animate-pulse'>Permite el acceso a la cámara cuando el navegador lo solicite</span>
+                    </div>
+                  )}
+                  {cameraActive && !cameraReady && (
+                    <div className='absolute inset-0 flex flex-col items-center justify-center gap-3 bg-slate-900/60'>
+                      <div className='w-12 h-12 rounded-full border-3 border-indigo-400/30 border-t-indigo-400 animate-spin' />
+                      <span className='text-white/60 text-sm'>Preparando imagen...</span>
+                    </div>
+                  )}
+                  {cameraActive && cameraReady && (
+                    <div className='absolute top-3 right-3 flex items-center gap-2 bg-emerald-500/30 backdrop-blur-sm border border-emerald-400/40 rounded-full px-3 py-1 animate-slide-down'>
+                      <span className='w-2 h-2 rounded-full bg-emerald-400 animate-pulse' />
+                      <span className='text-white text-xs font-medium'>Cámara lista</span>
+                    </div>
+                  )}
                 </div>
-                <button onClick={capturePhoto} disabled={!cameraActive} className='k-btn-primary w-full disabled:opacity-50'>Tomar foto</button>
+                <button 
+                  onClick={capturePhoto} 
+                  disabled={!cameraReady} 
+                  className='k-btn-primary w-full disabled:opacity-50 transition-all duration-300 group relative overflow-hidden'
+                >
+                  <span className={`inline-flex items-center gap-2 ${!cameraReady ? 'opacity-50' : ''}`}>
+                    {cameraReady ? '📸 Tomar foto' : '⏳ Preparando...'}
+                  </span>
+                </button>
               </>
             )}
             {kioskPhoto && (
               <>
-                <img src={kioskPhoto} alt='captura' className='w-full max-w-sm mx-auto rounded-3xl border-4 border-cyan-400/80 shadow-xl shadow-cyan-500/20' />
+                <div className='relative max-w-sm mx-auto animate-scale-bounce'>
+                  <div className='absolute -inset-2 bg-gradient-to-r from-cyan-400 via-indigo-400 to-purple-400 rounded-3xl opacity-30 blur-xl animate-pulse-glow' />
+                  <img src={kioskPhoto} alt='captura' className='relative w-full rounded-3xl border-4 border-cyan-400/80 shadow-xl shadow-cyan-500/20' />
+                  <div className='absolute -top-2 -right-2 w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center text-white text-xs font-bold shadow-lg animate-scale-bounce'>✓</div>
+                </div>
                 <div className='flex gap-3'>
-                  <button onClick={() => { setKioskPhoto(null); startCamera() }} className='k-btn-soft flex-1'>Repetir</button>
-                  <button onClick={() => submitKiosk(false)} disabled={loading} className='k-btn-primary flex-1'>{loading ? 'Guardando...' : '✓ Guardar y Finalizar'}</button>
+                  <button onClick={() => { setKioskPhoto(null); startCamera(); setCameraReady(false) }} className='k-btn-soft flex-1 group'>
+                    <span className='group-hover:inline-block group-hover:animate-float'>↻</span> Repetir
+                  </button>
+                  <button onClick={() => submitKiosk(false)} disabled={loading} className='k-btn-primary flex-1'>
+                    {loading ? (
+                      <span className='inline-flex items-center gap-2'><span className='spinner' /> Guardando...</span>
+                    ) : '✓ Guardar y Finalizar'}
+                  </button>
                 </div>
               </>
             )}
-            <button onClick={() => submitKiosk(true)} disabled={loading} className='text-slate-300 hover:text-white underline w-full text-sm transition'>Omitir foto y finalizar</button>
+            <button onClick={() => submitKiosk(true)} disabled={loading} className='text-slate-300 hover:text-white underline w-full text-sm transition group'>
+              {loading ? 'Procesando...' : 'Omitir foto y finalizar →'}
+            </button>
           </div>
         )}
       </div>
@@ -812,6 +914,88 @@ function App() {
       {/* Toast */}
       {message.text && (
         <div className={`toast-msg ${message.type}`}>{message.text}</div>
+      )}
+
+      {/* ─── CELEBRATION MODAL ─── */}
+      {showCelebration && (
+        <div className='fixed inset-0 z-[9999] flex items-center justify-center p-4 animate-fade-in' style={{background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(8px)'}}>
+          {/* Confetti particles */}
+          <div className='absolute inset-0 pointer-events-none overflow-hidden'>
+            {Array.from({length:30}).map((_, i) => (
+              <div
+                key={i}
+                className='absolute w-2 h-2 rounded-full animate-float-drift'
+                style={{
+                  left: `${Math.random() * 100}%`,
+                  top: `${Math.random() * 100}%`,
+                  backgroundColor: ['#29d6ff','#4f46e5','#f59e0b','#7c3aed','#10b981','#ef4444','#ec4899'][i % 7],
+                  animationDuration: `${3 + Math.random() * 4}s`,
+                  animationDelay: `${Math.random() * 2}s`,
+                  width: `${4 + Math.random() * 8}px`,
+                  height: `${4 + Math.random() * 8}px`,
+                  opacity: 0.8,
+                }}
+              />
+            ))}
+          </div>
+
+          {/* Firework bursts */}
+          <div className='absolute inset-0 pointer-events-none'>
+            {[1,2,3].map(i => (
+              <div
+                key={`burst-${i}`}
+                className='absolute rounded-full animate-scale-bounce'
+                style={{
+                  left: `${20 + Math.random() * 60}%`,
+                  top: `${15 + Math.random() * 40}%`,
+                  width: `${80 + Math.random() * 120}px`,
+                  height: `${80 + Math.random() * 120}px`,
+                  background: `radial-gradient(circle, ${['#29d6ff','#f59e0b','#7c3aed'][i-1]}40 0%, transparent 70%)`,
+                  animationDelay: `${i * 0.3}s`,
+                  animationDuration: '1.5s',
+                }}
+              />
+            ))}
+          </div>
+
+          {/* Modal card */}
+          <div className='relative glass rounded-3xl p-8 sm:p-12 max-w-md w-full text-center animate-scale-bounce' style={{animationDelay: '0.2s'}}>
+            {/* Top emoji burst */}
+            <div className='text-6xl mb-4 animate-float' style={{animationDuration: '3s'}}>🎉</div>
+
+            {/* Stars */}
+            <div className='flex justify-center gap-1 mb-4'>
+              {['⭐','✨','🌟','✨','⭐'].map((star, i) => (
+                <span key={i} className='animate-float' style={{animationDelay: `${i * 0.15}s`, animationDuration: '2.5s'}}>{star}</span>
+              ))}
+            </div>
+
+            <h2 className='text-3xl sm:text-4xl font-black text-white mb-3 bg-gradient-to-r from-cyan-300 via-indigo-300 to-purple-300 bg-clip-text text-transparent animate-pulse-glow'>
+              ¡Felicitaciones!
+            </h2>
+
+            <p className='text-slate-300 text-base sm:text-lg mb-6 leading-relaxed'>
+              Tu registro se ha completado con éxito. <br />
+              <span className='text-cyan-300 font-semibold'>Gracias por confiar en SYNAP</span> y en <span className='text-white font-semibold'>Ninja Park</span>.
+              <br />
+              <span className='text-slate-400 text-sm'>¡Prepárate para saltar y divertirte! 🏅</span>
+            </p>
+
+            {/* Animated checkmark */}
+            <div className='w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center shadow-2xl shadow-emerald-500/30 animate-scale-bounce'>
+              <span className='text-4xl animate-float' style={{animationDuration: '2s'}}>✅</span>
+            </div>
+
+            <button
+              onClick={() => { setShowCelebration(false); setView('welcome') }}
+              className='k-btn-primary text-lg px-10 py-4 w-full'
+            >
+              ¡Ir al inicio!
+            </button>
+
+            <p className='text-slate-500 text-xs mt-4'>Redirigiendo al inicio...</p>
+          </div>
+        </div>
       )}
     </div>
   )
