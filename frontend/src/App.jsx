@@ -76,6 +76,9 @@ function App() {
   const [recordsQuery, setRecordsQuery] = useState('')
   const [recordsSede, setRecordsSede] = useState('')
   const [editRecord, setEditRecord] = useState(null)
+  const [deleteModal, setDeleteModal] = useState(null) // { id, nombre } o null
+  const [deletePassword, setDeletePassword] = useState('')
+  const [deleteMotivo, setDeleteMotivo] = useState('')
 
   const [posCedula, setPosCedula] = useState('')
   const [posResult, setPosResult] = useState(null)
@@ -95,6 +98,35 @@ function App() {
   const pushMessage = (type, text) => {
     setMessage({ type, text })
     setTimeout(() => setMessage({ type: '', text: '' }), 4000)
+  }
+
+  // ─── Validaciones ───
+  const VALID_NAME_RE = /^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s'-]+$/
+  const isValidName = (value) => value && value.trim().length >= 2 && VALID_NAME_RE.test(value.trim())
+
+  const isValidDateOfBirth = (value) => {
+    if (!value) return false
+    const birth = new Date(value)
+    const now = new Date()
+    if (Number.isNaN(birth.getTime())) return false
+    // No puede ser hoy ni futura
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    const birthDay = new Date(birth.getFullYear(), birth.getMonth(), birth.getDate())
+    if (birthDay >= today) return false
+    // Edad mínima 1 año, máxima 120
+    const age = now.getFullYear() - birth.getFullYear()
+    if (age < 1 || age > 120) return false
+    return true
+  }
+
+  const isValidEmail = (value) => {
+    if (!value || !value.trim()) return true // opcional
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())
+  }
+
+  const isValidCelular = (value) => {
+    if (!value || !value.trim()) return true // opcional
+    return /^\d{7,15}$/.test(value.trim())
   }
 
   const fetchSedes = async () => {
@@ -117,20 +149,70 @@ function App() {
       setStream(null)
     }
     setCameraActive(false)
+    setCameraReady(false)
   }, [stream])
 
-  const startCamera = useCallback(async () => {
-    try {
-      const media = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 1280 } },
-        audio: false,
-      })
-      setStream(media)
-      setCameraActive(true)
-    } catch (error) {
-      pushMessage('error', 'No se pudo activar la cámara. Revisa permisos del navegador.')
+  // Effect: inicia la cámara cuando cameraActive se activa
+  useEffect(() => {
+    if (!cameraActive) return
+    let cancelled = false
+    setCameraReady(false)
+
+    const init = async () => {
+      try {
+        // Pequeña pausa para asegurar que el DOM del video se renderizó
+        await new Promise((r) => setTimeout(r, 100))
+        if (cancelled) return
+        const media = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 1280 } },
+          audio: false,
+        })
+        if (cancelled) {
+          media.getTracks().forEach((t) => t.stop())
+          return
+        }
+        setStream(media)
+      } catch (error) {
+        if (!cancelled) {
+          setCameraActive(false)
+          pushMessage('error', 'No se pudo activar la cámara. Revisa permisos del navegador.')
+        }
+      }
     }
-  }, [])
+
+    init()
+    return () => { cancelled = true }
+  }, [cameraActive])
+
+  // Effect: vincula el stream al elemento video y detecta cuando está listo
+  useEffect(() => {
+    if (!stream || !videoRef.current) return
+    const video = videoRef.current
+    video.srcObject = stream
+
+    const onReady = () => {
+      video.play().then(() => { if (!video.paused) setCameraReady(true) }).catch(() => setCameraReady(true))
+    }
+
+    if (video.readyState >= 2) {
+      onReady()
+    } else {
+      video.onloadedmetadata = onReady
+      video.onloadeddata = onReady
+      // Fallback: si en 3s no se disparó, forzar
+      const fallback = setTimeout(() => {
+        if (!cameraReady) {
+          video.play().then(() => setCameraReady(true)).catch(() => setCameraReady(true))
+        }
+      }, 3000)
+      video.onerror = () => clearTimeout(fallback)
+    }
+
+    return () => {
+      video.onloadedmetadata = null
+      video.onloadeddata = null
+    }
+  }, [stream])
 
   const capturePhoto = () => {
     if (!videoRef.current) return
@@ -150,16 +232,6 @@ function App() {
   useEffect(() => {
     fetchSedes().catch(() => pushMessage('error', 'No se pudo cargar sedes.'))
   }, [])
-
-  useEffect(() => {
-    if (videoRef.current && stream) {
-      videoRef.current.srcObject = stream
-      videoRef.current.onloadedmetadata = () => {
-        videoRef.current?.play()
-        setCameraReady(true)
-      }
-    }
-  }, [stream])
 
   useEffect(() => {
     return () => stopCamera()
@@ -223,8 +295,15 @@ function App() {
   }
 
   const kioskToStep3 = () => {
-    if (!kiosk.nombre.trim() || !kiosk.apellido.trim() || !kiosk.fecha_nacimiento) {
-      pushMessage('error', 'Completa nombre, apellido y fecha de nacimiento.')
+    const errors = []
+    if (!isValidName(kiosk.nombre)) errors.push('El nombre solo debe contener letras (mín. 2 caracteres).')
+    if (!isValidName(kiosk.apellido)) errors.push('El apellido solo debe contener letras (mín. 2 caracteres).')
+    if (!isValidDateOfBirth(kiosk.fecha_nacimiento)) errors.push('La fecha de nacimiento no es válida o eres muy pequeño/mayor.')
+    if (!isValidEmail(kiosk.email)) errors.push('El correo electrónico no es válido.')
+    if (!isValidCelular(kiosk.celular)) errors.push('El celular debe tener entre 7 y 15 dígitos.')
+
+    if (errors.length > 0) {
+      pushMessage('error', errors[0])
       return
     }
     setKioskStep(3)
@@ -232,14 +311,21 @@ function App() {
 
   const kioskToStep4 = () => {
     for (let i = 0; i < kioskRepresentados.length; i += 1) {
-      if (!kioskRepresentados[i].nombre.trim() || !kioskRepresentados[i].fecha_nacimiento) {
-        pushMessage('error', `Completa el acompañante #${i + 1}.`)
+      const repErrors = []
+      if (!isValidName(kioskRepresentados[i].nombre)) repErrors.push(`Acompañante #${i + 1}: el nombre solo debe contener letras.`)
+      if (!isValidDateOfBirth(kioskRepresentados[i].fecha_nacimiento)) repErrors.push(`Acompañante #${i + 1}: fecha de nacimiento no válida.`)
+      if (repErrors.length > 0) {
+        pushMessage('error', repErrors[0])
         return
       }
     }
     setKioskStep(4)
-    setCameraReady(false)
-    setTimeout(() => startCamera(), 350)
+    stopCamera()
+    // Pequeño delay para reiniciar el ciclo de la cámara limpiamente
+    setTimeout(() => {
+      setCameraReady(false)
+      setCameraActive(true)
+    }, 200)
   }
 
   const submitKiosk = async (skipPhoto = false) => {
@@ -260,9 +346,7 @@ function App() {
         const form = new FormData()
         form.append('cedula', kiosk.cedula.trim())
         form.append('foto', blob, `kiosk_${kiosk.cedula.trim()}.jpg`)
-        await axios.post(`${API_URL}/kiosk/upload-photo`, form, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        })
+        await axios.post(`${API_URL}/kiosk/upload-photo`, form)
       }
       pushMessage('success', '¡Registro completado con éxito!')
       setShowCelebration(true)
@@ -271,7 +355,6 @@ function App() {
       setKioskRepresentadosCount(0)
       setKioskPhoto(null)
       setKioskStep(1)
-      setView('welcome')
       stopCamera()
       setTimeout(() => setKiosk((prev) => ({ ...prev, sede: sedes[0] || '' })), 0)
     } catch (error) {
@@ -361,6 +444,27 @@ function App() {
       fetchRecords(recordsPage)
     } catch (error) {
       pushMessage('error', error.response?.data?.error || 'No se pudo guardar.')
+    } finally { setLoading(false) }
+  }
+
+  const deleteRecord = async () => {
+    if (!deleteModal || !deletePassword || !deleteMotivo || deleteMotivo.length < 5) {
+      pushMessage('error', 'Debes ingresar la contraseña del master y un motivo (mín. 5 caracteres).')
+      return
+    }
+    setLoading(true)
+    try {
+      await axios.delete(`${API_URL}/admin/records/${deleteModal.id}`, {
+        headers: authHeaders,
+        data: { password: deletePassword, motivo: deleteMotivo },
+      })
+      pushMessage('success', 'Registro eliminado correctamente.')
+      setDeleteModal(null)
+      setDeletePassword('')
+      setDeleteMotivo('')
+      fetchRecords(recordsPage)
+    } catch (error) {
+      pushMessage('error', error.response?.data?.error || 'No se pudo eliminar el registro.')
     } finally { setLoading(false) }
   }
 
@@ -893,7 +997,7 @@ function App() {
                   <div className='absolute -top-2 -right-2 w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center text-white text-xs font-bold shadow-lg animate-scale-bounce'>✓</div>
                 </div>
                 <div className='flex gap-3'>
-                  <button onClick={() => { setKioskPhoto(null); startCamera(); setCameraReady(false) }} className='k-btn-soft flex-1 group'>
+                  <button onClick={() => { setKioskPhoto(null); stopCamera(); setTimeout(() => setCameraActive(true), 300) }} className='k-btn-soft flex-1 group'>
                     <span className='group-hover:inline-block group-hover:animate-float'>↻</span> Repetir
                   </button>
                   <button onClick={() => submitKiosk(false)} disabled={loading} className='k-btn-primary flex-1'>
@@ -974,18 +1078,16 @@ function App() {
               ¡Felicitaciones!
             </h2>
 
-            <p className='text-slate-300 text-base sm:text-lg mb-6 leading-relaxed'>
+            <p className='text-slate-300 text-base sm:text-lg mb-4 leading-relaxed'>
               Tu registro se ha completado con éxito. <br />
               <span className='text-cyan-300 font-semibold'>Gracias por confiar en SYNAP</span> y en <span className='text-white font-semibold'>Ninja Park</span>.
               <br />
               <span className='text-slate-400 text-sm'>¡Prepárate para saltar y divertirte! 🏅</span>
             </p>
 
-            {/* Animated checkmark */}
-            <div className='w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center shadow-2xl shadow-emerald-500/30 animate-scale-bounce'>
-              <span className='text-4xl animate-float' style={{animationDuration: '2s'}}>✅</span>
-            </div>
-
+            <p className='text-slate-400 text-xs mb-6 leading-relaxed px-4 py-3 rounded-xl bg-white/5 border border-white/10'>
+              📄 Tu registro ha sido enviado a la caja de facturación de <strong className='text-slate-200'>Ninja Park</strong>. Acércate a caja para gestionar tu pago e ingreso.
+            </p>
             <button
               onClick={() => { setShowCelebration(false); setView('welcome') }}
               className='k-btn-primary text-lg px-10 py-4 w-full'
@@ -1132,14 +1234,14 @@ function App() {
                     <th className='text-left py-3 px-3 font-semibold'>Apellido</th>
                     <th className='text-left py-3 px-3 font-semibold'>Email</th>
                     <th className='text-left py-3 px-3 font-semibold'>Celular</th>
-                    <th className='text-left py-3 px-3 font-semibold'>Acción</th>
+                    <th className='text-center py-3 px-3 font-semibold' colSpan={2}>Acción</th>
                   </tr>
                 </thead>
                 <tbody>
                   {loading && records.length === 0 ? (
                     <>{Array.from({length:3}).map((_,i) => <SkeletonRow key={i} />)}</>
                   ) : records.length === 0 ? (
-                    <tr><td colSpan={7} className='text-center py-8 text-slate-400'>Sin registros encontrados</td></tr>
+                    <tr><td colSpan={8} className='text-center py-8 text-slate-400'>Sin registros encontrados</td></tr>
                   ) : (
                     records.map((row) => (
                       <tr key={row.id} className='border-t border-white/5 hover:bg-white/5 transition'>
@@ -1151,6 +1253,9 @@ function App() {
                         <td className='py-3 px-3'>{row.celular || '-'}</td>
                         <td className='py-3 px-3'>
                           <button onClick={() => setEditRecord({ ...row })} className='k-btn-soft k-btn-sm'>Editar</button>
+                        </td>
+                        <td className='py-3 px-3'>
+                          <button onClick={() => { setDeleteModal(row); setDeletePassword(''); setDeleteMotivo('') }} className='k-btn-sm rounded-lg bg-rose-500/60 text-white hover:bg-rose-500 transition text-xs'>Eliminar</button>
                         </td>
                       </tr>
                     ))
@@ -1238,6 +1343,40 @@ function App() {
             <div className='flex justify-end gap-2 mt-5'>
               <button onClick={() => setEditRecord(null)} className='k-btn-soft'>Cancelar</button>
               <button onClick={saveEditRecord} disabled={loading} className='k-btn-primary'>{loading ? 'Guardando...' : 'Guardar Cambios'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── DELETE MODAL (solo master) ─── */}
+      {adminUser?.role === 'master' && deleteModal && (
+        <div className='fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50 animate-fade-in'>
+          <div className='glass rounded-2xl p-6 w-full max-w-md animate-scale-in'>
+            <div className='flex items-center justify-between mb-4'>
+              <h3 className='text-white text-2xl font-bold'>Eliminar Registro</h3>
+              <span className='text-slate-400 text-sm'>ID: #{deleteModal.id}</span>
+            </div>
+
+            <p className='text-slate-300 text-sm mb-4'>
+              ¿Estás seguro de eliminar a <strong className='text-white'>{deleteModal.nombre} {deleteModal.apellido}</strong> (C.I. {deleteModal.cedula})?
+            </p>
+
+            <div className='space-y-3'>
+              <div>
+                <label className='text-slate-400 text-xs block mb-1'>Contraseña del Master *</label>
+                <input type='password' className='k-input' placeholder='Ingresa tu contraseña de master' value={deletePassword} onChange={(e) => setDeletePassword(e.target.value)} />
+              </div>
+              <div>
+                <label className='text-slate-400 text-xs block mb-1'>Motivo de eliminación *</label>
+                <textarea className='k-input min-h-[80px] resize-none' placeholder='Explica el motivo (mín. 5 caracteres)' value={deleteMotivo} onChange={(e) => setDeleteMotivo(e.target.value)} />
+              </div>
+            </div>
+
+            <div className='flex justify-end gap-2 mt-5'>
+              <button onClick={() => { setDeleteModal(null); setDeletePassword(''); setDeleteMotivo('') }} className='k-btn-soft'>Cancelar</button>
+              <button onClick={deleteRecord} disabled={loading || !deletePassword || deleteMotivo.length < 5} className='px-4 py-2 rounded-xl text-sm font-semibold bg-rose-500 text-white hover:bg-rose-600 transition disabled:opacity-50'>
+                {loading ? 'Eliminando...' : 'Eliminar'}
+              </button>
             </div>
           </div>
         </div>
