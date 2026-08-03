@@ -269,13 +269,59 @@ app.post('/api/kiosk/register-complete', async (req, res) => {
       return res.status(400).json({ error: 'Sede inválida' });
     }
 
+    // Validaciones de coherencia
+    const NAME_RE = /^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s'-]+$/;
+    if (!NAME_RE.test(trimmedNombre) || trimmedNombre.length < 2) {
+      return res.status(400).json({ error: 'El nombre solo debe contener letras (mín. 2 caracteres).' });
+    }
+    if (!NAME_RE.test(trimmedApellido) || trimmedApellido.length < 2) {
+      return res.status(400).json({ error: 'El apellido solo debe contener letras (mín. 2 caracteres).' });
+    }
+
+    // Validar fecha de nacimiento
+    const birthDate = new Date(fecha_nacimiento);
+    if (Number.isNaN(birthDate.getTime())) {
+      return res.status(400).json({ error: 'Fecha de nacimiento inválida.' });
+    }
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const birthDay = new Date(birthDate.getFullYear(), birthDate.getMonth(), birthDate.getDate());
+    if (birthDay >= today) {
+      return res.status(400).json({ error: 'La fecha de nacimiento no puede ser hoy ni futura.' });
+    }
+    const age = now.getFullYear() - birthDate.getFullYear();
+    if (age < 1 || age > 120) {
+      return res.status(400).json({ error: 'Edad no válida. Debes tener entre 1 y 120 años.' });
+    }
+
+    // Validar representados
+    const reps = normalizeRepresentados(representados);
+    for (const rep of reps) {
+      if (!NAME_RE.test(rep.nombre) || rep.nombre.length < 2) {
+        return res.status(400).json({ error: `Nombre del acompañante "${rep.nombre}" no es válido.` });
+      }
+      const repBirth = new Date(rep.fecha_nacimiento);
+      if (Number.isNaN(repBirth.getTime()) || repBirth >= today) {
+        return res.status(400).json({ error: `Fecha de nacimiento del acompañante "${rep.nombre}" no es válida.` });
+      }
+    }
+
     let representante = await Representante.findOne({ where: { cedula: trimmedCedula } });
+
+    // Sanitizar email y celular
+    const sanitizedEmail = email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email).trim())
+      ? String(email).trim()
+      : null;
+    const sanitizedCelular = celular && /^\d{7,15}$/.test(String(celular).trim())
+      ? String(celular).trim()
+      : null;
+
     if (representante) {
       representante.nombre = trimmedNombre;
       representante.apellido = trimmedApellido;
       representante.fecha_nacimiento = fecha_nacimiento;
-      representante.email = email ? String(email).trim() : null;
-      representante.celular = celular ? String(celular).trim() : null;
+      representante.email = sanitizedEmail;
+      representante.celular = sanitizedCelular;
       representante.sede = representante.sede || assignedSede;
       await representante.save();
     } else {
@@ -284,13 +330,12 @@ app.post('/api/kiosk/register-complete', async (req, res) => {
         nombre: trimmedNombre,
         apellido: trimmedApellido,
         fecha_nacimiento,
-        email: email ? String(email).trim() : null,
-        celular: celular ? String(celular).trim() : null,
+        email: sanitizedEmail,
+        celular: sanitizedCelular,
         sede: assignedSede,
       });
     }
 
-    const reps = normalizeRepresentados(representados);
     await Representado.destroy({ where: { representante_id: representante.id } });
     if (reps.length > 0) {
       await Representado.bulkCreate(
@@ -710,6 +755,61 @@ app.patch('/api/admin/records/:id', authRequired, requireRole('admin', 'master')
     return res.status(200).json({ message: 'Registro actualizado', data: record });
   } catch (error) {
     console.error('Error actualizando registro admin:', error);
+    return res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+// ─── ELIMINAR registro (solo master, requiere contraseña y motivo) ───
+app.delete('/api/admin/records/:id', authRequired, requireRole('master'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { password, motivo } = req.body;
+
+    if (!password || !motivo || motivo.trim().length < 5) {
+      return res.status(400).json({ error: 'Se requiere contraseña del master y un motivo (mín. 5 caracteres).' });
+    }
+
+    // Verificar contraseña del master autenticado
+    const masterUser = await User.findByPk(req.user.id);
+    if (!masterUser) {
+      return res.status(401).json({ error: 'Usuario no encontrado.' });
+    }
+
+    const validPassword = await bcrypt.compare(password, masterUser.password_hash);
+    if (!validPassword) {
+      return res.status(403).json({ error: 'Contraseña incorrecta.' });
+    }
+
+    const record = await Representante.findByPk(id);
+    if (!record) {
+      return res.status(404).json({ error: 'Registro no encontrado.' });
+    }
+
+    // Registrar en billing notifications como evento de eliminación
+    await BillingNotification.create({
+      event_type: 'kiosk.registration.deleted',
+      cedula: record.cedula,
+      sede: record.sede,
+      status: 'deleted',
+      amount: null,
+      currency: 'USD',
+      provider: 'admin',
+      reference: `DEL-${record.cedula}-${Date.now()}`,
+      payload: {
+        deleted_by: req.user.username,
+        motivo: motivo.trim(),
+        record_id: record.id,
+        record_nombre: `${record.nombre} ${record.apellido}`,
+      },
+    });
+
+    // Eliminar representados (CASCADE) y representante
+    await Representado.destroy({ where: { representante_id: record.id } });
+    await record.destroy();
+
+    return res.status(200).json({ message: 'Registro eliminado correctamente.' });
+  } catch (error) {
+    console.error('Error eliminando registro admin:', error);
     return res.status(500).json({ error: 'Error interno del servidor' });
   }
 });

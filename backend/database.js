@@ -30,7 +30,6 @@ const Representante = sequelize.define('Representante', {
   email: {
     type: DataTypes.STRING,
     allowNull: true,
-    validate: { isEmail: true },
   },
   celular: {
     type: DataTypes.STRING,
