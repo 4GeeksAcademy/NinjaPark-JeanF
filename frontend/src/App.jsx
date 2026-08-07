@@ -5,6 +5,7 @@ import './index.css'
 const API_URL = import.meta.env.VITE_API_URL || '/api'
 
 const initialKiosk = {
+  documentType: 'V',
   cedula: '',
   sede: '',
   nombre: '',
@@ -12,6 +13,106 @@ const initialKiosk = {
   fecha_nacimiento: '',
   email: '',
   celular: '',
+  phoneMode: 've',
+  phoneOperator: '412',
+  phoneNumber: '',
+  phoneIntl: '',
+}
+
+const DOCUMENT_TYPE_OPTIONS = [
+  { value: 'V', label: 'Venezolano (V)' },
+  { value: 'E', label: 'Extranjero (E)' },
+  { value: 'J', label: 'Jurídico (J)' },
+  { value: 'G', label: 'Gubernamental (G)' },
+  { value: 'P', label: 'Pasaporte (P)' },
+]
+
+const VENEZUELA_OPERATORS = ['412', '414', '416', '424', '426']
+
+const KIOSK_STEP_META = {
+  1: { title: 'Identidad', subtitle: 'Define tu documento y sede en segundos.' },
+  2: { title: 'Datos personales', subtitle: 'Completa tus datos y teléfono de contacto.' },
+  3: { title: 'Acompañantes', subtitle: 'Este paso es opcional y muy rápido.' },
+  4: { title: 'Foto', subtitle: 'Una captura y listo.' },
+  5: { title: 'Confirmación', subtitle: 'Revisa todo antes de guardar.' },
+}
+
+const KIOSK_DRAFT_KEY = 'synap_kiosk_draft_v1'
+const KIOSK_ACCESSIBLE_KEY = 'synap_kiosk_accessible_mode'
+
+const KIOSK_I18N = {
+  es: {
+    assistant: 'Asistente de registro',
+    eta: 'Tiempo estimado restante',
+    modeAccessible: 'Modo accesible',
+    modeStandard: 'Modo estándar',
+    back: '← Volver',
+    draftRecovered: 'Recuperamos tu registro en progreso automáticamente.',
+    draftPill: 'Tienes un borrador recuperado automáticamente.',
+    restartDraft: 'Empezar de cero',
+    legalAccept: 'Confirmo que los datos ingresados son correctos y autorizo su uso según políticas de privacidad.',
+    legalShow: 'Ver políticas de privacidad',
+    legalHide: 'Ocultar políticas',
+    smartReviewTitle: 'Revisión inteligente: detectamos puntos para revisar',
+    save: '✓ Confirmar y Guardar',
+    editing: 'Guardando...',
+    mustAcceptLegal: 'Debes aceptar la confirmación legal para finalizar el registro.',
+    steps: {
+      1: { title: 'Identidad', subtitle: 'Define tu documento y sede en segundos.' },
+      2: { title: 'Datos personales', subtitle: 'Completa tus datos y teléfono de contacto.' },
+      3: { title: 'Acompañantes', subtitle: 'Este paso es opcional y muy rápido.' },
+      4: { title: 'Foto', subtitle: 'Una captura y listo.' },
+      5: { title: 'Confirmación', subtitle: 'Revisa todo antes de guardar.' },
+    },
+  },
+  en: {
+    assistant: 'Registration Assistant',
+    eta: 'Estimated remaining time',
+    modeAccessible: 'Accessible mode',
+    modeStandard: 'Standard mode',
+    back: '← Back',
+    draftRecovered: 'We restored your in-progress registration automatically.',
+    draftPill: 'A saved draft was restored automatically.',
+    restartDraft: 'Start over',
+    legalAccept: 'I confirm the information is correct and I authorize its use according to the privacy policy.',
+    legalShow: 'View privacy policy',
+    legalHide: 'Hide policy',
+    smartReviewTitle: 'Smart review: we detected items worth checking',
+    save: '✓ Confirm and Save',
+    editing: 'Saving...',
+    mustAcceptLegal: 'You must accept the legal confirmation before finishing.',
+    steps: {
+      1: { title: 'Identity', subtitle: 'Set your document and location in seconds.' },
+      2: { title: 'Personal details', subtitle: 'Complete your personal and contact information.' },
+      3: { title: 'Companions', subtitle: 'This step is optional and very quick.' },
+      4: { title: 'Photo', subtitle: 'One capture and done.' },
+      5: { title: 'Confirmation', subtitle: 'Review everything before saving.' },
+    },
+  },
+  pt: {
+    assistant: 'Assistente de Registro',
+    eta: 'Tempo restante estimado',
+    modeAccessible: 'Modo acessível',
+    modeStandard: 'Modo padrão',
+    back: '← Voltar',
+    draftRecovered: 'Recuperamos automaticamente seu cadastro em andamento.',
+    draftPill: 'Um rascunho salvo foi restaurado automaticamente.',
+    restartDraft: 'Começar do zero',
+    legalAccept: 'Confirmo que os dados informados estão corretos e autorizo seu uso conforme a política de privacidade.',
+    legalShow: 'Ver política de privacidade',
+    legalHide: 'Ocultar política',
+    smartReviewTitle: 'Revisão inteligente: detectamos pontos para revisar',
+    save: '✓ Confirmar e Salvar',
+    editing: 'Salvando...',
+    mustAcceptLegal: 'Você deve aceitar a confirmação legal para finalizar.',
+    steps: {
+      1: { title: 'Identidade', subtitle: 'Defina seu documento e unidade em segundos.' },
+      2: { title: 'Dados pessoais', subtitle: 'Preencha seus dados e contato.' },
+      3: { title: 'Acompanhantes', subtitle: 'Esta etapa é opcional e rápida.' },
+      4: { title: 'Foto', subtitle: 'Uma captura e pronto.' },
+      5: { title: 'Confirmação', subtitle: 'Revise tudo antes de salvar.' },
+    },
+  },
 }
 
 const FOOTER_SECTIONS = {
@@ -90,6 +191,28 @@ function App() {
   const [footerSection, setFooterSection] = useState(null)
   const [showCelebration, setShowCelebration] = useState(false)
   const [cameraReady, setCameraReady] = useState(false)
+  const [kioskFieldErrors, setKioskFieldErrors] = useState({})
+  const [kioskPrefilled, setKioskPrefilled] = useState(false)
+  const [accessibleMode, setAccessibleMode] = useState(true)
+  const [kioskCountdown, setKioskCountdown] = useState(240)
+
+  const maxBirthDate = useMemo(() => {
+    const maxDate = new Date()
+    maxDate.setDate(maxDate.getDate() - 1)
+    const year = maxDate.getFullYear()
+    const month = String(maxDate.getMonth() + 1).padStart(2, '0')
+    const day = String(maxDate.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }, [])
+
+  const i18n = KIOSK_I18N.es
+  const currentStepMeta = i18n.steps?.[kioskStep] || KIOSK_I18N.es.steps[1]
+
+  const formattedCountdown = useMemo(() => {
+    const mins = Math.floor(kioskCountdown / 60)
+    const secs = kioskCountdown % 60
+    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
+  }, [kioskCountdown])
 
   const authHeaders = useMemo(() => (
     adminToken ? { Authorization: `Bearer ${adminToken}` } : {}
@@ -124,9 +247,159 @@ function App() {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())
   }
 
-  const isValidCelular = (value) => {
-    if (!value || !value.trim()) return true // opcional
-    return /^\d{7,15}$/.test(value.trim())
+  const isValidDocumentNumber = (documentType, value) => {
+    const cleaned = String(value || '').trim()
+    if (!/^\d{5,12}$/.test(cleaned)) return false
+    if (documentType === 'J') return cleaned.length >= 9
+    if (documentType === 'P') return cleaned.length >= 6
+    return cleaned.length >= 6
+  }
+
+  const buildDocumentValue = (data = kiosk) => `${data.documentType}-${String(data.cedula || '').trim()}`
+
+  const parseDocumentValue = (rawValue = '') => {
+    const value = String(rawValue || '').trim().toUpperCase()
+    const match = value.match(/^([VEJGP])[-\s]?(\d{5,12})$/)
+    if (!match) return null
+    return { documentType: match[1], cedula: match[2] }
+  }
+
+  const buildPhoneValue = (data = kiosk) => {
+    if (data.phoneMode === 've') {
+      const local = String(data.phoneNumber || '').replace(/\D/g, '')
+      if (!data.phoneOperator || local.length !== 7) return ''
+      return `0${data.phoneOperator}${local}`
+    }
+
+    return String(data.phoneIntl || '').replace(/\s+/g, '').trim()
+  }
+
+  const parsePhoneValue = (rawValue = '') => {
+    const value = String(rawValue || '').trim()
+    const digits = value.replace(/\D/g, '')
+
+    if (digits.length === 11 && digits.startsWith('0')) {
+      const operator = digits.slice(1, 4)
+      const number = digits.slice(4)
+      if (VENEZUELA_OPERATORS.includes(operator) && number.length === 7) {
+        return {
+          phoneMode: 've',
+          phoneOperator: operator,
+          phoneNumber: number,
+          phoneIntl: '',
+        }
+      }
+    }
+
+    return {
+      phoneMode: 'intl',
+      phoneOperator: '412',
+      phoneNumber: '',
+      phoneIntl: value,
+    }
+  }
+
+  const isValidPhoneByMode = (data = kiosk) => {
+    if (data.phoneMode === 've') {
+      return VENEZUELA_OPERATORS.includes(data.phoneOperator)
+        && /^\d{7}$/.test(String(data.phoneNumber || '').replace(/\D/g, ''))
+    }
+
+    const phoneIntl = String(data.phoneIntl || '').replace(/\s+/g, '')
+    return /^\+?[0-9]{7,15}$/.test(phoneIntl)
+  }
+
+  const formatPhoneDisplay = (data = kiosk) => {
+    if (data.phoneMode === 've') {
+      const local = String(data.phoneNumber || '').replace(/\D/g, '')
+      if (!local) return '-'
+      return `0${data.phoneOperator}-${local}`
+    }
+
+    return String(data.phoneIntl || '').trim() || '-'
+  }
+
+  const getKioskRemainingSeconds = () => {
+    const baseByStep = { 1: 110, 2: 80, 3: 55, 4: 35, 5: 20 }
+    let remaining = baseByStep[kioskStep] || 60
+    if (kioskPrefilled) remaining -= 18
+    if (kiosk.nombre) remaining -= 4
+    if (kiosk.apellido) remaining -= 4
+    if (kiosk.fecha_nacimiento) remaining -= 4
+    if (buildPhoneValue()) remaining -= 4
+    if (kioskRepresentadosCount === 0) remaining -= 8
+    if (kioskPhoto) remaining -= 10
+    return Math.max(10, remaining)
+  }
+
+  const saveKioskDraft = useCallback((draft) => {
+    try {
+      localStorage.setItem(KIOSK_DRAFT_KEY, JSON.stringify(draft))
+    } catch {
+      // ignore quota or serialization errors
+    }
+  }, [])
+
+  const clearKioskDraft = useCallback(() => {
+    try {
+      localStorage.removeItem(KIOSK_DRAFT_KEY)
+    } catch {
+      // ignore storage errors
+    }
+  }, [])
+
+  const formatWithDots = (digits = '') => String(digits || '').replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+
+  const formatDocumentDisplay = (data = kiosk) => `${data.documentType}-${formatWithDots(String(data.cedula || '').trim())}`
+
+  const parseVenezuelanPhoneFromAny = (rawValue = '') => {
+    const digits = String(rawValue || '').replace(/\D/g, '')
+    const withLocalPrefix = digits.startsWith('58') ? `0${digits.slice(2)}` : digits
+
+    if (withLocalPrefix.length === 11 && withLocalPrefix.startsWith('0')) {
+      const operator = withLocalPrefix.slice(1, 4)
+      const number = withLocalPrefix.slice(4)
+      if (VENEZUELA_OPERATORS.includes(operator) && number.length === 7) {
+        return { operator, number }
+      }
+    }
+
+    if (digits.length === 10) {
+      const operator = digits.slice(0, 3)
+      const number = digits.slice(3)
+      if (VENEZUELA_OPERATORS.includes(operator) && number.length === 7) {
+        return { operator, number }
+      }
+    }
+
+    return null
+  }
+
+  const validateStep1Fields = () => {
+    const errors = {}
+    if (!isValidDocumentNumber(kiosk.documentType, kiosk.cedula)) {
+      errors.cedula = 'Ingresa un número de documento válido según el tipo seleccionado.'
+    }
+    if (!kiosk.sede) {
+      errors.sede = 'Selecciona una sede para continuar.'
+    }
+    return errors
+  }
+
+  const validateStep2Fields = () => {
+    const errors = {}
+    if (!isValidName(kiosk.nombre)) errors.nombre = 'El nombre solo debe contener letras (mín. 2 caracteres).'
+    if (!isValidName(kiosk.apellido)) errors.apellido = 'El apellido solo debe contener letras (mín. 2 caracteres).'
+    if (!isValidDateOfBirth(kiosk.fecha_nacimiento)) errors.fecha_nacimiento = 'Ingresa una fecha de nacimiento válida.'
+    if (!isValidEmail(kiosk.email)) errors.email = 'El correo electrónico no es válido.'
+
+    if (!isValidPhoneByMode(kiosk)) {
+      errors.telefono = kiosk.phoneMode === 've'
+        ? 'Selecciona operadora y completa 7 dígitos.'
+        : 'Ingresa un número internacional válido (ej: +584121234567).'
+    }
+
+    return errors
   }
 
   const fetchSedes = async () => {
@@ -224,6 +497,9 @@ function App() {
     const ctx = canvas.getContext('2d')
     const sx = Math.max(0, (video.videoWidth - side) / 2)
     const sy = Math.max(0, (video.videoHeight - side) / 2)
+    // Mirror horizontal so saved photo matches mirrored live preview.
+    ctx.translate(side, 0)
+    ctx.scale(-1, 1)
     ctx.drawImage(video, sx, sy, side, side, 0, 0, side, side)
     setKioskPhoto(canvas.toDataURL('image/jpeg', 0.9))
     stopCamera()
@@ -232,6 +508,87 @@ function App() {
   useEffect(() => {
     fetchSedes().catch(() => pushMessage('error', 'No se pudo cargar sedes.'))
   }, [])
+
+  useEffect(() => {
+    try {
+      const persisted = localStorage.getItem(KIOSK_ACCESSIBLE_KEY)
+      if (persisted === '1') setAccessibleMode(true)
+    } catch {
+      // ignore
+    }
+  }, [])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(KIOSK_ACCESSIBLE_KEY, accessibleMode ? '1' : '0')
+    } catch {
+      // ignore
+    }
+  }, [accessibleMode])
+
+  useEffect(() => {
+    if (view !== 'kiosk') return
+    setKioskCountdown(240)
+    try {
+      const raw = localStorage.getItem(KIOSK_DRAFT_KEY)
+      if (!raw) return
+      const parsed = JSON.parse(raw)
+      const timestamp = Number(parsed?.timestamp || 0)
+      const age = Date.now() - timestamp
+      if (!timestamp || age > 10 * 60 * 1000) {
+        localStorage.removeItem(KIOSK_DRAFT_KEY)
+        return
+      }
+
+      if (parsed?.kiosk && typeof parsed.kiosk === 'object') {
+        setKiosk((prev) => ({ ...prev, ...parsed.kiosk }))
+      }
+      setKioskStep(Math.min(5, Math.max(1, Number(parsed?.kioskStep || 1))))
+      setKioskRepresentados(Array.isArray(parsed?.kioskRepresentados) ? parsed.kioskRepresentados : [])
+      setKioskRepresentadosCount(Number(parsed?.kioskRepresentadosCount || 0))
+      setKioskPhoto(parsed?.kioskPhoto || null)
+    } catch {
+      // ignore malformed draft
+    }
+  }, [view])
+
+  useEffect(() => {
+    if (view !== 'kiosk') return undefined
+
+    const timer = setInterval(() => {
+      setKioskCountdown((prev) => {
+        if (prev <= 1) {
+          pushMessage('error', 'Se agotó el tiempo. Empecemos nuevamente.')
+          resetKioskForNextPerson(false)
+          return 240
+        }
+        return prev - 1
+      })
+    }, 1000)
+
+    return () => clearInterval(timer)
+  }, [view, sedes, kiosk.sede])
+
+  useEffect(() => {
+    if (view !== 'kiosk') return
+    const draft = {
+      kiosk,
+      kioskStep,
+      kioskRepresentadosCount,
+      kioskRepresentados,
+      kioskPhoto,
+      timestamp: Date.now(),
+    }
+    saveKioskDraft(draft)
+  }, [
+    view,
+    kiosk,
+    kioskStep,
+    kioskRepresentadosCount,
+    kioskRepresentados,
+    kioskPhoto,
+    saveKioskDraft,
+  ])
 
   useEffect(() => {
     return () => stopCamera()
@@ -268,26 +625,58 @@ function App() {
     setKioskRepresentados(next)
   }
 
+  const selectQuickRepresentados = (count) => {
+    updateRepresentadosCount(String(count))
+  }
+
+  const resetKioskForNextPerson = (preserveSede = true) => {
+    const fallbackSede = preserveSede ? (kiosk.sede || sedes[0] || '') : (sedes[0] || '')
+    setKiosk({ ...initialKiosk, sede: fallbackSede })
+    setKioskStep(1)
+    setKioskRepresentadosCount(0)
+    setKioskRepresentados([])
+    setKioskPhoto(null)
+    setKioskPrefilled(false)
+    setKioskFieldErrors({})
+    setKioskCountdown(240)
+    stopCamera()
+    clearKioskDraft()
+  }
+
   const kioskStart = async () => {
-    if (!kiosk.cedula.trim() || !kiosk.sede) {
-      pushMessage('error', 'Debes ingresar cédula y sede.')
+    const errors = validateStep1Fields()
+    setKioskFieldErrors(errors)
+    if (Object.keys(errors).length > 0) {
+      pushMessage('error', Object.values(errors)[0])
       return
     }
+
+    const documentValue = buildDocumentValue()
     setLoading(true)
+    setKioskPrefilled(false)
     try {
       const response = await axios.post(`${API_URL}/kiosk/register-start`, {
-        cedula: kiosk.cedula.trim(),
+        cedula: documentValue,
         sede: kiosk.sede,
       })
       const existing = response.data.data || {}
+      const parsedDocument = parseDocumentValue(existing.cedula || documentValue)
+      const parsedPhone = parsePhoneValue(existing.celular || '')
       setKiosk((prev) => ({
         ...prev,
+        documentType: parsedDocument?.documentType || prev.documentType,
+        cedula: parsedDocument?.cedula || prev.cedula,
         nombre: existing.nombre || prev.nombre,
         apellido: existing.apellido || prev.apellido,
         fecha_nacimiento: existing.fecha_nacimiento || prev.fecha_nacimiento,
         email: existing.email || prev.email,
         celular: existing.celular || prev.celular,
+        phoneMode: existing.celular ? parsedPhone.phoneMode : prev.phoneMode,
+        phoneOperator: existing.celular ? parsedPhone.phoneOperator : prev.phoneOperator,
+        phoneNumber: existing.celular ? parsedPhone.phoneNumber : prev.phoneNumber,
+        phoneIntl: existing.celular ? parsedPhone.phoneIntl : prev.phoneIntl,
       }))
+      setKioskPrefilled(Boolean(existing.nombre || existing.apellido || existing.fecha_nacimiento || existing.email || existing.celular))
       setKioskStep(2)
     } catch (error) {
       pushMessage('error', error.response?.data?.error || 'No se pudo iniciar registro.')
@@ -295,15 +684,10 @@ function App() {
   }
 
   const kioskToStep3 = () => {
-    const errors = []
-    if (!isValidName(kiosk.nombre)) errors.push('El nombre solo debe contener letras (mín. 2 caracteres).')
-    if (!isValidName(kiosk.apellido)) errors.push('El apellido solo debe contener letras (mín. 2 caracteres).')
-    if (!isValidDateOfBirth(kiosk.fecha_nacimiento)) errors.push('La fecha de nacimiento no es válida o eres muy pequeño/mayor.')
-    if (!isValidEmail(kiosk.email)) errors.push('El correo electrónico no es válido.')
-    if (!isValidCelular(kiosk.celular)) errors.push('El celular debe tener entre 7 y 15 dígitos.')
-
-    if (errors.length > 0) {
-      pushMessage('error', errors[0])
+    const errors = validateStep2Fields()
+    setKioskFieldErrors(errors)
+    if (Object.keys(errors).length > 0) {
+      pushMessage('error', Object.values(errors)[0])
       return
     }
     setKioskStep(3)
@@ -328,35 +712,38 @@ function App() {
     }, 200)
   }
 
+  const kioskToStep5 = () => {
+    stopCamera()
+    setKioskStep(5)
+  }
+
   const submitKiosk = async (skipPhoto = false) => {
     setLoading(true)
     try {
+      const documentValue = buildDocumentValue()
+      const phoneValue = buildPhoneValue()
+
       const payload = {
         ...kiosk,
-        cedula: kiosk.cedula.trim(),
+        cedula: documentValue,
         nombre: kiosk.nombre.trim(),
         apellido: kiosk.apellido.trim(),
         email: kiosk.email.trim() || null,
-        celular: kiosk.celular.trim() || null,
+        celular: phoneValue || null,
         representados: kioskRepresentados,
       }
       await axios.post(`${API_URL}/kiosk/register-complete`, payload)
       if (!skipPhoto && kioskPhoto) {
         const blob = await (await fetch(kioskPhoto)).blob()
+        const safeDocument = documentValue.replace(/[^A-Za-z0-9_-]/g, '_')
         const form = new FormData()
-        form.append('cedula', kiosk.cedula.trim())
-        form.append('foto', blob, `kiosk_${kiosk.cedula.trim()}.jpg`)
+        form.append('cedula', documentValue)
+        form.append('foto', blob, `kiosk_${safeDocument}.jpg`)
         await axios.post(`${API_URL}/kiosk/upload-photo`, form)
       }
       pushMessage('success', '¡Registro completado con éxito!')
       setShowCelebration(true)
-      setKiosk(initialKiosk)
-      setKioskRepresentados([])
-      setKioskRepresentadosCount(0)
-      setKioskPhoto(null)
-      setKioskStep(1)
-      stopCamera()
-      setTimeout(() => setKiosk((prev) => ({ ...prev, sede: sedes[0] || '' })), 0)
+      resetKioskForNextPerson(false)
     } catch (error) {
       pushMessage('error', error.response?.data?.error || 'No se pudo completar.')
     } finally { setLoading(false) }
@@ -868,24 +1255,33 @@ function App() {
 
   // ─── RENDER: Kiosk ───
   const renderKiosk = () => (
-    <div className='ninja-bg min-h-screen p-4 sm:p-8'>
+    <div className={`ninja-bg min-h-screen p-4 sm:p-8 ${accessibleMode ? 'kiosk-mode-accessible' : ''}`}>
+      <div className='kiosk-timer-pill'>
+        Tiempo: {formattedCountdown}
+      </div>
       <div className='max-w-3xl mx-auto glass rounded-3xl p-6 sm:p-10'>
         <div className='flex items-center justify-between mb-6'>
           <div className='flex items-center gap-2'>
             <div className='w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-400 to-indigo-500 flex items-center justify-center text-white font-black text-xs'>S</div>
             <h2 className='text-2xl sm:text-3xl font-black text-white'>Kiosko SYNAP</h2>
           </div>
-          <button onClick={() => { stopCamera(); setView('welcome') }} className='text-white/70 hover:text-white text-sm'>← Volver</button>
+          <button onClick={() => { stopCamera(); setView('welcome') }} className='text-white/70 hover:text-white text-sm'>{i18n.back}</button>
         </div>
 
         {/* Steps */}
+        <div className='mb-4 rounded-2xl border border-cyan-300/25 bg-cyan-400/10 px-4 py-3 animate-fade-up'>
+          <p className='text-cyan-200 text-xs uppercase tracking-[0.12em] font-semibold'>{i18n.assistant}</p>
+          <p className='text-white font-semibold text-lg leading-tight'>{currentStepMeta.title}</p>
+          <p className='text-slate-300 text-sm'>Sigue estos pasos. Es rápido y simple.</p>
+        </div>
+
         <div className='flex items-center gap-2 mb-8'>
-          {[1, 2, 3, 4].map((step) => (
+          {[1, 2, 3, 4, 5].map((step) => (
             <div key={step} className='flex items-center gap-2'>
               <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm transition-all ${kioskStep >= step ? 'bg-gradient-to-br from-cyan-400 to-indigo-500 text-white shadow-lg shadow-cyan-500/25' : 'bg-white/10 text-white/50'}`}>
                 {step}
               </div>
-              {step < 4 && <div className={`w-8 sm:w-14 h-1 rounded transition-all ${kioskStep > step ? 'bg-gradient-to-r from-cyan-400 to-indigo-500' : 'bg-white/10'}`} />}
+              {step < 5 && <div className={`w-5 sm:w-10 h-1 rounded transition-all ${kioskStep > step ? 'bg-gradient-to-r from-cyan-400 to-indigo-500' : 'bg-white/10'}`} />}
             </div>
           ))}
         </div>
@@ -894,13 +1290,47 @@ function App() {
         {kioskStep === 1 && (
           <div className='space-y-4 animate-fade-up'>
             <h3 className='text-white text-2xl font-bold'>Paso 1: Identificación</h3>
-            <p className='text-slate-300 text-sm'>Ingresa tu cédula y selecciona la sede donde ingresarás.</p>
-            <input className='k-input' placeholder='Número de cédula' value={kiosk.cedula} onChange={(e) => setKiosk((p) => ({ ...p, cedula: e.target.value.replace(/\D/g, '') }))} />
-            <select className='k-input' value={kiosk.sede} onChange={(e) => setKiosk((p) => ({ ...p, sede: e.target.value }))}>
-              <option value=''>Selecciona una sede</option>
-              {sedes.map((sede) => <option key={sede} value={sede}>{sede}</option>)}
-            </select>
-            <button onClick={kioskStart} disabled={loading} className='k-btn-primary w-full'>{loading ? 'Validando...' : 'Continuar →'}</button>
+            <p className='text-slate-300 text-sm'>Selecciona tu tipo de documento, ingresa el número y elige la sede donde ingresarás.</p>
+            <div className='grid grid-cols-1 sm:grid-cols-3 gap-3'>
+              <div className='k-field-card sm:col-span-1'>
+                <label className='k-field-label'>Tipo de documento</label>
+                <select className='k-input k-input-advanced' value={kiosk.documentType} onChange={(e) => {
+                  setKiosk((p) => ({ ...p, documentType: e.target.value }))
+                  setKioskFieldErrors((prev) => ({ ...prev, cedula: '', sede: '' }))
+                }}>
+                  {DOCUMENT_TYPE_OPTIONS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                </select>
+              </div>
+              <div className='k-field-card sm:col-span-2'>
+                <label className='k-field-label'>Número de documento</label>
+                <input
+                  className={`k-input k-input-advanced ${kioskFieldErrors.cedula ? 'k-input-error' : ''}`}
+                  placeholder='Ejemplo: 12345678'
+                  value={kiosk.cedula}
+                  onChange={(e) => {
+                    const nextValue = e.target.value.replace(/\D/g, '').slice(0, 12)
+                    setKiosk((p) => ({ ...p, cedula: nextValue }))
+                    setKioskFieldErrors((prev) => ({ ...prev, cedula: '' }))
+                  }}
+                />
+                <p className='k-field-hint'>Vista previa: <span className='font-semibold text-cyan-200'>{formatDocumentDisplay()}</span></p>
+                {kioskFieldErrors.cedula && <p className='k-field-error'>{kioskFieldErrors.cedula}</p>}
+              </div>
+            </div>
+
+            <div className='k-field-card'>
+              <label className='k-field-label'>Sede</label>
+              <select className={`k-input k-input-advanced ${kioskFieldErrors.sede ? 'k-input-error' : ''}`} value={kiosk.sede} onChange={(e) => {
+                setKiosk((p) => ({ ...p, sede: e.target.value }))
+                setKioskFieldErrors((prev) => ({ ...prev, sede: '' }))
+              }}>
+                <option value=''>Selecciona una sede</option>
+                {sedes.map((sede) => <option key={sede} value={sede}>{sede}</option>)}
+              </select>
+              {kioskFieldErrors.sede && <p className='k-field-error'>{kioskFieldErrors.sede}</p>}
+            </div>
+
+            <button onClick={kioskStart} disabled={loading} className='k-btn-primary k-btn-roomy w-full'>{loading ? 'Validando...' : 'Continuar →'}</button>
           </div>
         )}
 
@@ -908,16 +1338,125 @@ function App() {
         {kioskStep === 2 && (
           <div className='space-y-4 animate-fade-up'>
             <h3 className='text-white text-2xl font-bold'>Paso 2: Tus datos</h3>
+            {kioskPrefilled && (
+              <div className='rounded-xl border border-emerald-300/25 bg-emerald-400/10 px-3 py-2 text-emerald-100 text-sm animate-slide-down'>
+                Encontramos un registro previo y precargamos tus datos para que termines más rápido.
+              </div>
+            )}
             <div className='grid grid-cols-1 sm:grid-cols-2 gap-3'>
-              <input className='k-input' placeholder='Nombre *' value={kiosk.nombre} onChange={(e) => setKiosk((p) => ({ ...p, nombre: e.target.value }))} />
-              <input className='k-input' placeholder='Apellido *' value={kiosk.apellido} onChange={(e) => setKiosk((p) => ({ ...p, apellido: e.target.value }))} />
-              <input type='date' className='k-input' value={kiosk.fecha_nacimiento} onChange={(e) => setKiosk((p) => ({ ...p, fecha_nacimiento: e.target.value }))} />
-              <input type='email' className='k-input' placeholder='Correo electrónico' value={kiosk.email} onChange={(e) => setKiosk((p) => ({ ...p, email: e.target.value }))} />
-              <input className='k-input sm:col-span-2' placeholder='Número de celular' value={kiosk.celular} onChange={(e) => setKiosk((p) => ({ ...p, celular: e.target.value }))} />
+              <div className='k-field-card'>
+                <label className='k-field-label'>Nombre *</label>
+                <input className={`k-input k-input-advanced ${kioskFieldErrors.nombre ? 'k-input-error' : ''}`} placeholder='Nombre' value={kiosk.nombre} onChange={(e) => {
+                  setKiosk((p) => ({ ...p, nombre: e.target.value }))
+                  setKioskFieldErrors((prev) => ({ ...prev, nombre: '' }))
+                }} />
+                {kioskFieldErrors.nombre && <p className='k-field-error'>{kioskFieldErrors.nombre}</p>}
+              </div>
+              <div className='k-field-card'>
+                <label className='k-field-label'>Apellido *</label>
+                <input className={`k-input k-input-advanced ${kioskFieldErrors.apellido ? 'k-input-error' : ''}`} placeholder='Apellido' value={kiosk.apellido} onChange={(e) => {
+                  setKiosk((p) => ({ ...p, apellido: e.target.value }))
+                  setKioskFieldErrors((prev) => ({ ...prev, apellido: '' }))
+                }} />
+                {kioskFieldErrors.apellido && <p className='k-field-error'>{kioskFieldErrors.apellido}</p>}
+              </div>
+              <div className='k-field-card'>
+                <label className='k-field-label'>Fecha de nacimiento *</label>
+                <input type='date' max={maxBirthDate} className={`k-input k-input-advanced k-date-input ${kioskFieldErrors.fecha_nacimiento ? 'k-input-error' : ''}`} value={kiosk.fecha_nacimiento} onChange={(e) => {
+                  setKiosk((p) => ({ ...p, fecha_nacimiento: e.target.value }))
+                  setKioskFieldErrors((prev) => ({ ...prev, fecha_nacimiento: '' }))
+                }} />
+                {kioskFieldErrors.fecha_nacimiento && <p className='k-field-error'>{kioskFieldErrors.fecha_nacimiento}</p>}
+              </div>
+              <div className='k-field-card'>
+                <label className='k-field-label'>Correo electrónico</label>
+                <input type='email' className={`k-input k-input-advanced ${kioskFieldErrors.email ? 'k-input-error' : ''}`} placeholder='correo@dominio.com' value={kiosk.email} onChange={(e) => {
+                  setKiosk((p) => ({ ...p, email: e.target.value }))
+                  setKioskFieldErrors((prev) => ({ ...prev, email: '' }))
+                }} />
+                {kioskFieldErrors.email && <p className='k-field-error'>{kioskFieldErrors.email}</p>}
+              </div>
+            </div>
+
+            <div className='p-4 rounded-2xl bg-white/10 border border-white/15 space-y-3 k-phone-card'>
+              <p className='text-white font-semibold'>Teléfono de contacto</p>
+              <div className='grid grid-cols-1 sm:grid-cols-3 gap-3'>
+                <div className='k-field-card sm:col-span-1'>
+                  <label className='k-field-label'>Formato</label>
+                  <select className='k-input k-input-advanced' value={kiosk.phoneMode} onChange={(e) => {
+                    setKiosk((p) => ({ ...p, phoneMode: e.target.value }))
+                    setKioskFieldErrors((prev) => ({ ...prev, telefono: '' }))
+                  }}>
+                    <option value='ve'>Venezolano</option>
+                    <option value='intl'>Internacional</option>
+                  </select>
+                </div>
+
+                {kiosk.phoneMode === 've' ? (
+                  <>
+                    <div className='k-field-card sm:col-span-1'>
+                      <label className='k-field-label'>Operadora</label>
+                      <select className='k-input k-input-advanced' value={kiosk.phoneOperator} onChange={(e) => {
+                        setKiosk((p) => ({ ...p, phoneOperator: e.target.value }))
+                        setKioskFieldErrors((prev) => ({ ...prev, telefono: '' }))
+                      }}>
+                        {VENEZUELA_OPERATORS.map((operator) => <option key={operator} value={operator}>0{operator}</option>)}
+                      </select>
+                    </div>
+                    <div className='k-field-card sm:col-span-1'>
+                      <label className='k-field-label'>Número</label>
+                      <input
+                        className={`k-input k-input-advanced ${kioskFieldErrors.telefono ? 'k-input-error' : ''}`}
+                        placeholder='1234567'
+                        maxLength={16}
+                        value={kiosk.phoneNumber}
+                        onChange={(e) => {
+                          const raw = e.target.value
+                          const parsed = parseVenezuelanPhoneFromAny(raw)
+                          if (parsed) {
+                            setKiosk((p) => ({ ...p, phoneOperator: parsed.operator, phoneNumber: parsed.number }))
+                          } else {
+                            setKiosk((p) => ({ ...p, phoneNumber: raw.replace(/\D/g, '').slice(0, 7) }))
+                          }
+                          setKioskFieldErrors((prev) => ({ ...prev, telefono: '' }))
+                        }}
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <div className='k-field-card sm:col-span-2'>
+                    <label className='k-field-label'>Número internacional</label>
+                    <input
+                      className={`k-input k-input-advanced ${kioskFieldErrors.telefono ? 'k-input-error' : ''}`}
+                      placeholder='+584121234567'
+                      value={kiosk.phoneIntl}
+                      onChange={(e) => {
+                        const raw = e.target.value
+                        const parsed = parseVenezuelanPhoneFromAny(raw)
+                        if (parsed) {
+                          setKiosk((p) => ({
+                            ...p,
+                            phoneMode: 've',
+                            phoneOperator: parsed.operator,
+                            phoneNumber: parsed.number,
+                            phoneIntl: '',
+                          }))
+                        } else {
+                          setKiosk((p) => ({ ...p, phoneIntl: raw }))
+                        }
+                        setKioskFieldErrors((prev) => ({ ...prev, telefono: '' }))
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+              <p className='text-slate-300 text-xs'>Si pegas un número completo (ej: 04121234567 o +584121234567), detectamos operadora automáticamente.</p>
+              <p className='text-cyan-200 text-xs'>Teléfono estimado: <span className='font-semibold'>{formatPhoneDisplay()}</span></p>
+              {kioskFieldErrors.telefono && <p className='k-field-error'>{kioskFieldErrors.telefono}</p>}
             </div>
             <div className='flex gap-3'>
-              <button onClick={() => setKioskStep(1)} className='k-btn-soft flex-1'>← Atrás</button>
-              <button onClick={kioskToStep3} className='k-btn-primary flex-1'>Siguiente →</button>
+              <button onClick={() => setKioskStep(1)} className='k-btn-soft k-btn-roomy flex-1'>← Atrás</button>
+              <button onClick={kioskToStep3} className='k-btn-primary k-btn-roomy flex-1'>Siguiente →</button>
             </div>
           </div>
         )}
@@ -926,20 +1465,45 @@ function App() {
         {kioskStep === 3 && (
           <div className='space-y-4 animate-fade-up'>
             <h3 className='text-white text-2xl font-bold'>Paso 3: Acompañantes</h3>
-            <p className='text-slate-300 text-sm'>¿Cuántos menores o acompañantes ingresan contigo?</p>
-            <input type='number' min='0' className='k-input' placeholder='Cantidad de acompañantes' value={kioskRepresentadosCount} onChange={(e) => updateRepresentadosCount(e.target.value)} />
+            <p className='text-slate-300 text-sm'>Este paso es opcional. Elige rápido o personaliza la cantidad.</p>
+
+            <div className='grid grid-cols-5 gap-2'>
+              {[0, 1, 2, 3, 4].map((count) => (
+                <button
+                  key={count}
+                  type='button'
+                  onClick={() => selectQuickRepresentados(count)}
+                  className={`k-quick-chip ${kioskRepresentadosCount === count ? 'active' : ''}`}
+                >
+                  {count}
+                </button>
+              ))}
+            </div>
+
+            <div className='k-field-card'>
+              <label className='k-field-label'>Cantidad personalizada</label>
+              <input type='number' min='0' className='k-input k-input-advanced' placeholder='Cantidad de acompañantes' value={kioskRepresentadosCount} onChange={(e) => updateRepresentadosCount(e.target.value)} />
+            </div>
+
             {kioskRepresentados.map((rep, index) => (
               <div key={index} className='p-4 rounded-2xl bg-white/10 border border-white/15'>
                 <p className='text-white font-semibold mb-2'>Acompañante #{index + 1}</p>
                 <div className='grid grid-cols-1 sm:grid-cols-2 gap-3'>
-                  <input className='k-input' placeholder='Nombre' value={rep.nombre} onChange={(e) => { const next = [...kioskRepresentados]; next[index].nombre = e.target.value; setKioskRepresentados(next) }} />
-                  <input type='date' className='k-input' value={rep.fecha_nacimiento} onChange={(e) => { const next = [...kioskRepresentados]; next[index].fecha_nacimiento = e.target.value; setKioskRepresentados(next) }} />
+                  <div className='k-field-card'>
+                    <label className='k-field-label'>Nombre</label>
+                    <input className='k-input k-input-advanced' placeholder='Nombre' value={rep.nombre} onChange={(e) => { const next = [...kioskRepresentados]; next[index].nombre = e.target.value; setKioskRepresentados(next) }} />
+                  </div>
+                  <div className='k-field-card'>
+                    <label className='k-field-label'>Fecha de nacimiento</label>
+                    <input type='date' max={maxBirthDate} className='k-input k-input-advanced k-date-input' value={rep.fecha_nacimiento} onChange={(e) => { const next = [...kioskRepresentados]; next[index].fecha_nacimiento = e.target.value; setKioskRepresentados(next) }} />
+                  </div>
                 </div>
               </div>
             ))}
             <div className='flex gap-3'>
-              <button onClick={() => setKioskStep(2)} className='k-btn-soft flex-1'>← Atrás</button>
-              <button onClick={kioskToStep4} className='k-btn-primary flex-1'>Siguiente: Foto →</button>
+              <button onClick={() => setKioskStep(2)} className='k-btn-soft k-btn-roomy flex-1'>← Atrás</button>
+              <button onClick={() => { updateRepresentadosCount('0'); kioskToStep4() }} className='k-btn-soft k-btn-roomy flex-1'>Sin acompañantes</button>
+              <button onClick={kioskToStep4} className='k-btn-primary k-btn-roomy flex-1'>Siguiente: Foto →</button>
             </div>
           </div>
         )}
@@ -952,7 +1516,7 @@ function App() {
             {!kioskPhoto && (
               <>
                 <div className='relative rounded-3xl overflow-hidden border border-white/15 bg-slate-900'>
-                  <video ref={videoRef} autoPlay playsInline muted className='w-full aspect-square object-cover' />
+                  <video ref={videoRef} autoPlay playsInline muted className='w-full aspect-square object-cover' style={{ transform: 'scaleX(-1)' }} />
                   {!cameraActive && (
                     <div className='absolute inset-0 flex flex-col items-center justify-center gap-3 bg-slate-900/80 animate-fade-in'>
                       <div className='relative'>
@@ -981,7 +1545,7 @@ function App() {
                 <button 
                   onClick={capturePhoto} 
                   disabled={!cameraReady} 
-                  className='k-btn-primary w-full disabled:opacity-50 transition-all duration-300 group relative overflow-hidden'
+                  className='k-btn-primary k-btn-roomy w-full disabled:opacity-50 transition-all duration-300 group relative overflow-hidden'
                 >
                   <span className={`inline-flex items-center gap-2 ${!cameraReady ? 'opacity-50' : ''}`}>
                     {cameraReady ? '📸 Tomar foto' : '⏳ Preparando...'}
@@ -997,20 +1561,108 @@ function App() {
                   <div className='absolute -top-2 -right-2 w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center text-white text-xs font-bold shadow-lg animate-scale-bounce'>✓</div>
                 </div>
                 <div className='flex gap-3'>
-                  <button onClick={() => { setKioskPhoto(null); stopCamera(); setTimeout(() => setCameraActive(true), 300) }} className='k-btn-soft flex-1 group'>
+                  <button onClick={() => { setKioskPhoto(null); stopCamera(); setTimeout(() => setCameraActive(true), 300) }} className='k-btn-soft k-btn-roomy flex-1 group'>
                     <span className='group-hover:inline-block group-hover:animate-float'>↻</span> Repetir
                   </button>
-                  <button onClick={() => submitKiosk(false)} disabled={loading} className='k-btn-primary flex-1'>
-                    {loading ? (
-                      <span className='inline-flex items-center gap-2'><span className='spinner' /> Guardando...</span>
-                    ) : '✓ Guardar y Finalizar'}
+                  <button onClick={kioskToStep5} className='k-btn-primary k-btn-roomy flex-1'>
+                    Confirmar datos →
                   </button>
                 </div>
               </>
             )}
-            <button onClick={() => submitKiosk(true)} disabled={loading} className='text-slate-300 hover:text-white underline w-full text-sm transition group'>
-              {loading ? 'Procesando...' : 'Omitir foto y finalizar →'}
+            <button onClick={kioskToStep5} className='text-slate-300 hover:text-white underline w-full text-sm transition group'>
+              Omitir foto y continuar a confirmación →
             </button>
+          </div>
+        )}
+
+        {/* Step 5 */}
+        {kioskStep === 5 && (
+          <div className='space-y-5 animate-fade-up'>
+            <h3 className='text-white text-2xl font-bold'>Paso 5: Confirmación</h3>
+            <p className='text-slate-300 text-sm'>Revisa todos tus datos antes de guardar el registro.</p>
+
+            <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
+              <div className='md:col-span-1 p-4 rounded-2xl bg-white/10 border border-white/15'>
+                <p className='text-white font-semibold mb-3'>Foto</p>
+                {kioskPhoto ? (
+                  <img src={kioskPhoto} alt='confirmacion-foto' className='w-full aspect-square object-cover rounded-2xl border border-cyan-300/40' />
+                ) : (
+                  <div className='w-full aspect-square rounded-2xl border border-dashed border-white/30 flex items-center justify-center text-center text-slate-300 text-sm px-4'>
+                    Sin foto. Puedes continuar o volver para tomarla.
+                  </div>
+                )}
+              </div>
+
+              <div className='md:col-span-2 p-4 rounded-2xl bg-white/10 border border-white/15 space-y-4'>
+                <p className='text-white font-semibold'>Datos del representante</p>
+
+                <div className='grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm'>
+                  <div className='rounded-xl bg-slate-900/40 border border-white/10 p-3'>
+                    <p className='text-slate-400 text-xs'>Documento</p>
+                    <p className='text-white font-medium'>{buildDocumentValue()}</p>
+                  </div>
+                  <div className='rounded-xl bg-slate-900/40 border border-white/10 p-3'>
+                    <p className='text-slate-400 text-xs'>Sede</p>
+                    <p className='text-white font-medium'>{kiosk.sede || '-'}</p>
+                  </div>
+                  <div className='rounded-xl bg-slate-900/40 border border-white/10 p-3'>
+                    <p className='text-slate-400 text-xs'>Nombre</p>
+                    <p className='text-white font-medium'>{kiosk.nombre || '-'}</p>
+                  </div>
+                  <div className='rounded-xl bg-slate-900/40 border border-white/10 p-3'>
+                    <p className='text-slate-400 text-xs'>Apellido</p>
+                    <p className='text-white font-medium'>{kiosk.apellido || '-'}</p>
+                  </div>
+                  <div className='rounded-xl bg-slate-900/40 border border-white/10 p-3'>
+                    <p className='text-slate-400 text-xs'>Fecha de nacimiento</p>
+                    <p className='text-white font-medium'>{kiosk.fecha_nacimiento || '-'}</p>
+                  </div>
+                  <div className='rounded-xl bg-slate-900/40 border border-white/10 p-3'>
+                    <p className='text-slate-400 text-xs'>Correo</p>
+                    <p className='text-white font-medium'>{kiosk.email || '-'}</p>
+                  </div>
+                  <div className='rounded-xl bg-slate-900/40 border border-white/10 p-3 sm:col-span-2'>
+                    <p className='text-slate-400 text-xs'>Teléfono</p>
+                    <p className='text-white font-medium'>{formatPhoneDisplay()}</p>
+                  </div>
+                </div>
+
+                <div>
+                  <p className='text-white font-semibold mb-2'>Acompañantes ({kioskRepresentados.length})</p>
+                  {kioskRepresentados.length === 0 ? (
+                    <div className='rounded-xl bg-slate-900/40 border border-white/10 p-3 text-slate-300 text-sm'>No agregaste acompañantes.</div>
+                  ) : (
+                    <div className='space-y-2'>
+                      {kioskRepresentados.map((rep, index) => (
+                        <div key={index} className='rounded-xl bg-slate-900/40 border border-white/10 p-3 text-sm flex items-center justify-between gap-3'>
+                          <span className='text-white'>{rep.nombre || `Acompañante #${index + 1}`}</span>
+                          <span className='text-slate-300'>{rep.fecha_nacimiento || '-'}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className='grid grid-cols-1 sm:grid-cols-3 gap-3'>
+              <button onClick={() => setKioskStep(2)} className='k-btn-soft k-btn-roomy'>Editar datos</button>
+              <button onClick={() => setKioskStep(4)} className='k-btn-soft k-btn-roomy'>Editar foto</button>
+              <button onClick={() => submitKiosk(!kioskPhoto)} disabled={loading} className='k-btn-primary k-btn-roomy'>
+                {loading ? (
+                  <span className='inline-flex items-center gap-2'><span className='spinner' /> {i18n.editing}</span>
+                ) : 'Aceptar y crear registro'}
+              </button>
+            </div>
+
+            <div className='rounded-2xl border border-white/15 bg-white/5 p-4 space-y-2'>
+              <p className='text-slate-200 text-sm'>Al pulsar el botón final, aceptas los términos y la política de privacidad.</p>
+              <div className='rounded-xl border border-white/10 bg-slate-900/50 p-3 text-slate-200 text-xs whitespace-pre-line'>
+                {FOOTER_SECTIONS.privacy.content}
+              </div>
+            </div>
+
           </div>
         )}
       </div>
@@ -1028,7 +1680,7 @@ function App() {
             {Array.from({length:30}).map((_, i) => (
               <div
                 key={i}
-                className='absolute w-2 h-2 rounded-full animate-float-drift'
+                className='absolute rounded-full animate-float-drift'
                 style={{
                   left: `${Math.random() * 100}%`,
                   top: `${Math.random() * 100}%`,
@@ -1043,59 +1695,13 @@ function App() {
             ))}
           </div>
 
-          {/* Firework bursts */}
-          <div className='absolute inset-0 pointer-events-none'>
-            {[1,2,3].map(i => (
-              <div
-                key={`burst-${i}`}
-                className='absolute rounded-full animate-scale-bounce'
-                style={{
-                  left: `${20 + Math.random() * 60}%`,
-                  top: `${15 + Math.random() * 40}%`,
-                  width: `${80 + Math.random() * 120}px`,
-                  height: `${80 + Math.random() * 120}px`,
-                  background: `radial-gradient(circle, ${['#29d6ff','#f59e0b','#7c3aed'][i-1]}40 0%, transparent 70%)`,
-                  animationDelay: `${i * 0.3}s`,
-                  animationDuration: '1.5s',
-                }}
-              />
-            ))}
-          </div>
-
-          {/* Modal card */}
-          <div className='relative glass rounded-3xl p-8 sm:p-12 max-w-md w-full text-center animate-scale-bounce' style={{animationDelay: '0.2s'}}>
-            {/* Top emoji burst */}
-            <div className='text-6xl mb-4 animate-float' style={{animationDuration: '3s'}}>🎉</div>
-
-            {/* Stars */}
-            <div className='flex justify-center gap-1 mb-4'>
-              {['⭐','✨','🌟','✨','⭐'].map((star, i) => (
-                <span key={i} className='animate-float' style={{animationDelay: `${i * 0.15}s`, animationDuration: '2.5s'}}>{star}</span>
-              ))}
+          <div className='relative glass rounded-3xl p-8 sm:p-10 max-w-lg w-full text-center z-10 animate-scale-bounce'>
+            <h3 className='text-3xl sm:text-4xl font-black text-white mb-3'>¡Registro exitoso!</h3>
+            <p className='text-slate-200 mb-6'>Tus datos fueron guardados correctamente. Ya puedes continuar con el ingreso.</p>
+            <div className='flex flex-col sm:flex-row gap-3 justify-center'>
+              <button onClick={() => setShowCelebration(false)} className='k-btn-soft'>Cerrar</button>
+              <button onClick={() => { setShowCelebration(false); setView('welcome') }} className='k-btn-primary'>Ir al inicio</button>
             </div>
-
-            <h2 className='text-3xl sm:text-4xl font-black text-white mb-3 bg-gradient-to-r from-cyan-300 via-indigo-300 to-purple-300 bg-clip-text text-transparent animate-pulse-glow'>
-              ¡Felicitaciones!
-            </h2>
-
-            <p className='text-slate-300 text-base sm:text-lg mb-4 leading-relaxed'>
-              Tu registro se ha completado con éxito. <br />
-              <span className='text-cyan-300 font-semibold'>Gracias por confiar en SYNAP</span> y en <span className='text-white font-semibold'>Ninja Park</span>.
-              <br />
-              <span className='text-slate-400 text-sm'>¡Prepárate para saltar y divertirte! 🏅</span>
-            </p>
-
-            <p className='text-slate-400 text-xs mb-6 leading-relaxed px-4 py-3 rounded-xl bg-white/5 border border-white/10'>
-              📄 Tu registro ha sido enviado a la caja de facturación de <strong className='text-slate-200'>Ninja Park</strong>. Acércate a caja para gestionar tu pago e ingreso.
-            </p>
-            <button
-              onClick={() => { setShowCelebration(false); setView('welcome') }}
-              className='k-btn-primary text-lg px-10 py-4 w-full'
-            >
-              ¡Ir al inicio!
-            </button>
-
-            <p className='text-slate-500 text-xs mt-4'>Redirigiendo al inicio...</p>
           </div>
         </div>
       )}
@@ -1104,26 +1710,46 @@ function App() {
 
   // ─── RENDER: Admin Login ───
   const renderAdminLogin = () => (
-    <div className='ninja-bg min-h-screen p-6 flex items-center justify-center'>
-      <div className='glass-dark rounded-3xl p-8 w-full max-w-md animate-scale-in'>
-        <div className='flex items-center justify-center gap-2 mb-4'>
-          <div className='w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-400 via-indigo-500 to-purple-600 flex items-center justify-center text-white font-black shadow-lg shadow-cyan-500/25'>S</div>
+    <div className='ninja-bg min-h-screen flex items-center justify-center p-4 sm:p-8'>
+      <div className='w-full max-w-md glass rounded-3xl p-6 sm:p-8 animate-fade-up'>
+        <div className='flex items-center justify-between mb-6'>
+          <div className='flex items-center gap-2'>
+            <div className='w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-400 to-indigo-500 flex items-center justify-center text-white font-black text-xs'>S</div>
+            <h2 className='text-2xl font-black text-white'>Acceso Admin</h2>
+          </div>
+          <button onClick={() => setView('welcome')} className='text-white/70 hover:text-white text-sm'>← Volver</button>
         </div>
-        <h2 className='text-3xl font-black text-white text-center mb-1'>Acceso Administrativo</h2>
-        <p className='text-slate-400 text-center text-sm mb-8'>Panel de control SYNAP — Ninja Park</p>
 
         <form onSubmit={adminLogin} className='space-y-4'>
-          <input className='k-input' placeholder='Usuario' value={loginForm.username} onChange={(e) => setLoginForm((p) => ({ ...p, username: e.target.value }))} />
-          <input type='password' className='k-input' placeholder='Contraseña' value={loginForm.password} onChange={(e) => setLoginForm((p) => ({ ...p, password: e.target.value }))} />
-          <button disabled={loading} className='k-btn-primary w-full text-lg'>{loading ? 'Ingresando...' : 'Ingresar'}</button>
+          <div className='k-field-card'>
+            <label className='k-field-label'>Usuario</label>
+            <input
+              className='k-input k-input-advanced'
+              placeholder='usuario'
+              value={loginForm.username}
+              onChange={(e) => setLoginForm((p) => ({ ...p, username: e.target.value }))}
+            />
+          </div>
+          <div className='k-field-card'>
+            <label className='k-field-label'>Contraseña</label>
+            <input
+              type='password'
+              className='k-input k-input-advanced'
+              placeholder='••••••••'
+              value={loginForm.password}
+              onChange={(e) => setLoginForm((p) => ({ ...p, password: e.target.value }))}
+            />
+          </div>
+
+          <button type='submit' disabled={loading} className='k-btn-primary w-full'>
+            {loading ? 'Ingresando...' : 'Entrar al panel'}
+          </button>
         </form>
 
-        <button onClick={() => setView('welcome')} className='mt-6 text-slate-400 hover:text-white text-sm w-full text-center transition'>← Volver al inicio</button>
+        {message.text && (
+          <div className={`toast-msg ${message.type}`}>{message.text}</div>
+        )}
       </div>
-
-      {message.text && (
-        <div className={`toast-msg ${message.type}`}>{message.text}</div>
-      )}
     </div>
   )
 
@@ -1159,7 +1785,7 @@ function App() {
               <h3 className='text-xl font-bold text-white mb-1'>POS Autocompletado</h3>
               <p className='text-slate-400 text-xs mb-4'>Busca clientes por cédula para facturación en caja.</p>
               <div className='flex gap-2'>
-                <input className='k-input' placeholder='Cédula' value={posCedula} onChange={(e) => setPosCedula(e.target.value.replace(/\D/g, ''))} />
+                <input className='k-input' placeholder='Documento (ej: V-12345678)' value={posCedula} onChange={(e) => setPosCedula(e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, ''))} />
                 <button onClick={posLookup} disabled={loading} className='k-btn-primary whitespace-nowrap'>{loading ? '...' : 'Buscar'}</button>
               </div>
               {posResult && (
@@ -1176,7 +1802,7 @@ function App() {
               <h3 className='text-xl font-bold text-white mb-1'>Facturación en Tiempo Real</h3>
               <p className='text-slate-400 text-xs mb-4'>Consulta y simula eventos de pago.</p>
               <div className='flex gap-2'>
-                <input className='k-input' placeholder='Cédula' value={billingCedula} onChange={(e) => setBillingCedula(e.target.value.replace(/\D/g, ''))} />
+                <input className='k-input' placeholder='Documento (ej: V-12345678)' value={billingCedula} onChange={(e) => setBillingCedula(e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, ''))} />
                 <button onClick={billingLookup} disabled={loading} className='k-btn-primary whitespace-nowrap'>{loading ? '...' : 'Consultar'}</button>
               </div>
               {billingResult && (

@@ -1171,7 +1171,7 @@ const ensureDefaultUsers = async () => {
 // Iniciar servidor
 async function startServer() {
   try {
-    await sequelize.sync({ alter: true });
+    await sequelize.sync();
     await ensureDefaultUsers();
     console.log('Base de datos sincronizada correctamente.');
 

@@ -1,11 +1,28 @@
 const { Sequelize, DataTypes } = require('sequelize');
 const path = require('path');
 
-const sequelize = new Sequelize({
-  dialect: 'sqlite',
-  storage: path.join(__dirname, 'database.sqlite'),
-  logging: false,
-});
+let sequelize;
+
+if (process.env.DATABASE_URL) {
+  // Producción: PostgreSQL (Render / Railway, etc.)
+  sequelize = new Sequelize(process.env.DATABASE_URL, {
+    dialect: 'postgres',
+    dialectOptions: {
+      ssl: {
+        require: true,
+        rejectUnauthorized: false,
+      },
+    },
+    logging: false,
+  });
+} else {
+  // Desarrollo local: SQLite
+  sequelize = new Sequelize({
+    dialect: 'sqlite',
+    storage: path.join(__dirname, 'database.sqlite'),
+    logging: false,
+  });
+}
 
 // Modelo: Representante (cliente principal)
 const Representante = sequelize.define('Representante', {
